@@ -54,6 +54,12 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
 - **Mouse wheel** over a field of the display (PART, INSTRUMENT, LEVEL, ...): its ◀ ▶ keys.
   Over VOLUME: the volume.
 - **Computer keyboard** (click into the panel first): ← → PART, ↑ ↓ INSTRUMENT.
+- **MIDI IN** (the Windows standalone): the field in the bar under the panel picks the MIDI
+  input, one port, all of them or none; the list is read again each time it opens, so a
+  keyboard plugged in later shows up. The first start listens to all inputs; the choice is
+  kept in `%LOCALAPPDATA%\Ostrich 55\standalone-midi-in.txt`. A port another program
+  holds cannot be opened; the field says so. In a DAW the plugin gets its MIDI from the
+  track, as any instrument.
 
 ## Known limitations
 
@@ -63,6 +69,8 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
   SC-155 and others (ROADMAP.md).
 - The SC-55 forgets its panel settings at power-off, and so does Ostrich 55: a session
   restores what its MIDI sets, not what was set on the panel.
+- The Windows standalone plays on Windows' default audio device; there is no choice of
+  device or buffer size (DPF's standalone has none).
 - **Tested:** the build, and the plugin headless (`ostrich_clap_render`) on Linux. Not yet
   in a DAW.
 

@@ -13,7 +13,8 @@ installer; the emulation itself stays Nuked-SC55's, unmodified.
   ROM recognition by SHA-256; boots v1.21 on Linux and Windows, renders at 64 kHz.
 - **Plugin** (VST3, CLAP, standalone; Windows and Linux): panel with the LCD, the keys,
   VOLUME and the MIDI MESSAGE lamp; GS and GM reset; ROM setup in the panel (loose files
-  or zips); keyboard and mouse wheel for the keys.
+  or zips); keyboard and mouse wheel for the keys; a MIDI IN port choice in the Windows
+  standalone (WinMM; the port list checked on Windows, playing from a keyboard not yet).
 - **Installer** for Windows (NSIS): VST3, CLAP, standalone, the ROM folder in ProgramData.
 - **Tested:** the build; the CLAP headless on Linux (`ostrich_clap_render`) at 44.1 and
   48 kHz, with and without ROMs; panel keys change the firmware's state. **Not yet** in a

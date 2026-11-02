@@ -10,7 +10,7 @@
 
 NAME = Ostrich55
 
-FILES_DSP = OstrichPlugin.cpp
+FILES_DSP = OstrichPlugin.cpp MidiInput.cpp
 FILES_UI  = OstrichUI.cpp
 
 include ../dpf/Makefile.plugins.mk
@@ -21,7 +21,7 @@ BUILD_CXX_FLAGS := -I. -I../core $(BUILD_CXX_FLAGS) -std=c++20
 LINK_FLAGS      += $(abspath $(CORE_LIB))
 
 ifeq ($(WINDOWS),true)
-EXTRA_LIBS      += -lpthread
+EXTRA_LIBS      += -lpthread -lwinmm
 endif
 
 TARGETS = vst3 clap jack

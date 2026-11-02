@@ -7,9 +7,11 @@
 // being a plugin; nothing here may change how the machine behaves.
 
 #include "DistrhoPlugin.hpp"
+#include "DistrhoPluginUtils.hpp"
 #include "OstrichShared.hpp"
 
 #include "sc55_core.h"
+#include "MidiInput.hpp"
 #include "Resampler.hpp"
 #include "ZipReader.hpp"
 
@@ -20,6 +22,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <map>
 #include <mutex>
@@ -137,6 +140,17 @@ std::vector<fs::path> installDirs()
 	env("HOME", ".local/share/Ostrich 55/roms");
 #endif
 	return dirs;
+}
+
+/// The Windows standalone's MIDI IN choice, per user (MidiInput.hpp); empty elsewhere.
+fs::path midiChoiceFile()
+{
+#ifdef _WIN32
+	if (const wchar_t *v = _wgetenv(L"LOCALAPPDATA"))
+		if (*v)
+			return fs::path(v) / L"Ostrich 55" / L"standalone-midi-in.txt";
+#endif
+	return fs::path();
 }
 
 /// What one or more folders hold, by SHA-256 whatever the names: for every ROM set
@@ -284,6 +298,17 @@ public:
 		for (auto &f : m_keyFreeFrames) f = kKeyGapFrames;     // the first press goes at once
 		loadRoms();
 		setupRate(getSampleRate());
+		if (m_ownMidi)
+		{
+			// The choice of the last run; the first time, every input, so that a keyboard
+			// plays at once.
+			const fs::path f = midiChoiceFile();
+			const std::vector<uint8_t> saved = f.empty() ? std::vector<uint8_t>() : readFile(f, 4096);
+			std::string choice = saved.empty() ? std::string(kMidiAll) : std::string(saved.begin(), saved.end());
+			while (!choice.empty() && (choice.back() == '\n' || choice.back() == '\r'))
+				choice.pop_back();
+			applyMidiIn(choice, false);
+		}
 	}
 
 	~OstrichPlugin() override
@@ -405,6 +430,16 @@ protected:
 			state.label = "GS/GM reset";
 			state.hints = kStateIsOnlyForDSP;
 			break;
+		case kStateMidiIn:
+			state.key = "midiin";
+			state.label = "MIDI IN port";
+			state.hints = kStateIsOnlyForDSP;
+			break;
+		case kStateMidiPorts:
+			state.key = "midiports";
+			state.label = "MIDI IN ports";
+			state.hints = kStateIsOnlyForUI;
+			break;
 		}
 		state.defaultValue = "";
 	}
@@ -425,6 +460,11 @@ protected:
 		{
 			std::lock_guard<std::mutex> lock(m_uiSizeLock);
 			return String(m_uiSize.c_str());
+		}
+		if (std::strcmp(key, "midiports") == 0)
+		{
+			std::lock_guard<std::mutex> lock(m_statusLock);
+			return String(m_midiPorts.c_str());
 		}
 		return String();
 	}
@@ -461,6 +501,19 @@ protected:
 				m_resetRequest.store(std::strcmp(what, "gm") == 0 ? 2 : std::strcmp(what, "gs") == 0 ? 1 : 0);
 			return;
 		}
+		if (std::strcmp(key, "midiin") == 0)
+		{
+			unsigned n = 0;
+			int used = 0;
+			if (!m_ownMidi || std::sscanf(value, "%u %n", &n, &used) < 1 || used == 0)
+				return;
+			const std::string choice = value + used;
+			if (choice == kMidiRescan)
+				rescanMidiIn();
+			else
+				applyMidiIn(choice, true);
+			return;
+		}
 	}
 
 	// ---- audio ---------------------------------------------------------------------------
@@ -491,6 +544,10 @@ protected:
 		{
 			std::memset(outL, 0, sizeof(float) * frames);
 			std::memset(outR, 0, sizeof(float) * frames);
+			// Played while nothing listens: gone, not played all at once later.
+			uint8_t drop[256];
+			while (m_ownMidi && m_midiIn.read(drop, sizeof(drop)) > 0)
+				;
 			if (lock.owns_lock() && m_core.running())
 				setupRate(m_hostRate);          // a machine of another rate came up
 			publishPanel(frames, lock.owns_lock());
@@ -511,8 +568,19 @@ protected:
 				m_core.midi(kGmReset, sizeof(kGmReset));
 		}
 
+		// The standalone's own MIDI IN: what came in since the last block, at its start.
+		if (m_ownMidi)
+		{
+			uint8_t in[256];
+			for (size_t n; (n = m_midiIn.read(in, sizeof(in))) > 0; )
+			{
+				m_core.midi(in, n);
+				m_midiSeen = true;
+			}
+		}
+
 		// MIDI in at its place in the block: the core is rendered up to each event.  The
-		// bytes then reach the firmware at the wire's 31250 baud, as from a sequencer.
+		// firmware then reads the bytes from its serial port one by one, as from a cable.
 		float *const cl = m_coreBuf[0].data(), *const cr = m_coreBuf[1].data();
 		uint32_t done = 0;
 		for (uint32_t i = 0; i < midiEventCount; i ++)
@@ -607,7 +675,7 @@ private:
 
 	void flushStateToUi()
 	{
-		if (!m_statusPending.load() && !m_romSetPending.load())
+		if (!m_statusPending.load() && !m_romSetPending.load() && !m_midiPortsPending.load())
 			return;
 		// Set on other threads too: never wait for it here.
 		std::unique_lock<std::mutex> sl(m_statusLock, std::try_to_lock);
@@ -617,6 +685,53 @@ private:
 			updateStateValue("status", m_status.c_str());
 		if (m_romSetPending.exchange(false))
 			updateStateValue("romset", m_romSet.c_str());
+		if (m_midiPortsPending.exchange(false))
+			updateStateValue("midiports", m_midiPorts.c_str());
+	}
+
+	// ---- the standalone's MIDI IN (MidiInput.hpp) ---------------------------------------
+	//
+	// On the thread that sets states (the UI's); run() only reads what came in.
+
+	void applyMidiIn(const std::string &choice, bool save)
+	{
+		m_midiChoice = choice;
+		m_midiProblem = m_midiIn.open(choice);
+		m_midiPortsSeen = MidiInput::ports();
+		if (save)
+		{
+			const fs::path f = midiChoiceFile();
+			if (!f.empty())
+			{
+				std::error_code ec;
+				fs::create_directories(f.parent_path(), ec);
+				writeFile(f, std::vector<uint8_t>(choice.begin(), choice.end()));
+			}
+		}
+		publishMidiPorts();
+	}
+
+	// The panel opens its list: a port that came or went since.  A port that plays is left
+	// open, so that no note-off gets lost.
+	void rescanMidiIn()
+	{
+		if (MidiInput::ports() != m_midiPortsSeen && (!m_midiProblem.empty() || m_midiChoice == kMidiAll))
+			applyMidiIn(m_midiChoice, false);
+		else
+		{
+			m_midiPortsSeen = MidiInput::ports();
+			publishMidiPorts();
+		}
+	}
+
+	void publishMidiPorts()
+	{
+		std::string t = m_midiChoice + kFieldSep + m_midiProblem;
+		for (const std::string &p : m_midiPortsSeen)
+			t += kFieldSep + p;
+		std::lock_guard<std::mutex> lock(m_statusLock);
+		m_midiPorts = t;
+		m_midiPortsPending.store(true);
 	}
 
 	void publishPanel(uint32_t frames, bool haveMachine)
@@ -884,6 +999,14 @@ private:
 	PanelBlob m_lastBlob {};
 	bool m_midiSeen = false;        // MIDI in since the last refresh: the MIDI MESSAGE lamp
 	char m_blobHex[sizeof(PanelBlob) * 2 + 1] = {};
+
+	// The Windows standalone's own MIDI IN.  m_midiPorts is under m_statusLock, the rest
+	// belongs to the thread that sets states.
+	const bool m_ownMidi = MidiInput::supported() && std::strstr(getPluginFormatName(), "Standalone") != nullptr;
+	MidiInput m_midiIn;
+	std::string m_midiChoice, m_midiProblem, m_midiPorts;
+	std::vector<std::string> m_midiPortsSeen;
+	std::atomic<bool> m_midiPortsPending { false };
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichPlugin)
 };

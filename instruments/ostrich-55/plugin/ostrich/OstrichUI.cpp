@@ -10,11 +10,13 @@
 
 #include "sc55_core.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 START_NAMESPACE_DISTRHO
 
@@ -94,10 +96,16 @@ const char *const kPairNames[8] = { "PART", "INSTRUMENT", "LEVEL", "PAN", "REVER
 
 const Rect kKnob { 1212.0f, 84.0f, 64.0f, 64.0f };
 
-// The bar, from the right: GM RESET, GS RESET; the status line takes the rest.
+// The bar, from the right: GM RESET, GS RESET, in the Windows standalone MIDI IN; the status
+// line takes the rest.  MIDI IN's list opens upwards, over the panel.
 constexpr float kBarBtnH = 18.0f, kBarBtnY = kBarY + (kBarH - kBarBtnH) / 2;
 const Rect kGmReset { kW - 16.0f - 80.0f, kBarBtnY, 80.0f, kBarBtnH };
 const Rect kGsReset { kGmReset.x - 8.0f - 80.0f, kBarBtnY, 80.0f, kBarBtnH };
+const Rect kMidiIn  { kGsReset.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
+// More ports than fit above the bar go into further columns, to the left.
+constexpr float kMenuItemH = 18.0f, kMenuColW = 260.0f;
+constexpr int kMenuRows = int((kBarY - 8.0f) / kMenuItemH);
+constexpr int kMenuMaxItems = kMenuRows * 5;
 
 // While ROM images are missing they take the place of the display and the keys: what is
 // needed, a chip per image, and a button that asks for a file -- any one of them; the rest
@@ -156,6 +164,11 @@ protected:
 		else if (std::strcmp(key, "romset") == 0)
 		{
 			setRomSet(value);
+			repaint();
+		}
+		else if (std::strcmp(key, "midiports") == 0)
+		{
+			setMidiPorts(value);
 			repaint();
 		}
 	}
@@ -222,6 +235,8 @@ protected:
 			drawKeys();
 		}
 		drawBar();
+		if (m_midiMenu)
+			drawMidiMenu();
 	}
 
 	bool onMouse(const MouseEvent &ev) override
@@ -234,6 +249,24 @@ protected:
 		if (ev.press)
 		{
 			getWindow().focus();                // for the computer keyboard (onKeyboard)
+			if (m_midiMenu)
+			{
+				// A click into the list picks; anywhere else only closes it.
+				const int i = midiItemAt(x, y);
+				m_midiMenu = false;
+				if (i >= 0)
+					chooseMidi(i);
+				repaint();
+				return true;
+			}
+			if (m_midiOffered && kMidiIn.contains(x, y))
+			{
+				m_midiMenu = true;
+				m_midiHover = -1;
+				sendMidiIn(kMidiRescan);        // the list again: a keyboard plugged in since
+				repaint();
+				return true;
+			}
 			if (romSetup())
 			{
 				bool hit = kRomChoose.contains(x, y);
@@ -295,9 +328,19 @@ protected:
 
 	bool onMotion(const MotionEvent &ev) override
 	{
+		const float s = mouseScale();
+		if (m_midiMenu)
+		{
+			const int i = midiItemAt(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s);
+			if (i != m_midiHover)
+			{
+				m_midiHover = i;
+				repaint();
+			}
+			return true;
+		}
 		if (!m_dragKnob)
 			return false;
-		const float s = mouseScale();
 		const float y = float(ev.pos.getY()) / s;
 		const float db = std::fmax(-40.0f, std::fmin(12.0f, m_dragStartDb + (m_dragY - y) * 0.3f));
 		m_volumeDb = db;
@@ -313,6 +356,12 @@ protected:
 	{
 		if (ev.mod & (kModifierControl | kModifierAlt | kModifierSuper))
 			return false;
+		if (m_midiMenu && ev.press && ev.key == kKeyEscape)
+		{
+			m_midiMenu = false;
+			repaint();
+			return true;
+		}
 		if (!ev.press)
 		{
 			for (unsigned k = 0; k < kNumKeys; k ++)
@@ -642,8 +691,10 @@ private:
 
 		barButton(kGsReset, "GS RESET", false);
 		barButton(kGmReset, "GM RESET", false);
+		if (m_midiOffered)
+			drawMidiIn();
 
-		const float w = kGsReset.x - 24 - 16;
+		const float w = (m_midiOffered ? kMidiIn.x : kGsReset.x) - 24 - 16;
 		fontSize(11);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(m_panel.flags & 1 ? Color(140, 140, 140) : Color(240, 170, 60));
@@ -664,6 +715,147 @@ private:
 		textAlign(ALIGN_CENTER | ALIGN_MIDDLE);
 		fillColor(lit ? Color(40, 20, 0) : Color(200, 200, 204));
 		text(r.x + r.w / 2, r.y + r.h / 2 + 1, label, nullptr);
+	}
+
+	// ---- MIDI IN (the Windows standalone) ------------------------------------------------
+
+	void setMidiPorts(const char *value)
+	{
+		std::vector<std::string> part(1);
+		for (const char *c = value; *c; c ++)
+		{
+			if (*c == kFieldSep)
+				part.emplace_back();
+			else
+				part.back() += *c;
+		}
+		m_midiOffered = part.size() >= 2;
+		if (!m_midiOffered)
+		{
+			m_midiMenu = false;
+			return;
+		}
+		m_midiChoice = part[0];
+		m_midiProblem = part[1];
+		m_midiPortList.assign(part.begin() + 2, part.end());
+	}
+
+	void sendMidiIn(const std::string &choice)
+	{
+		const std::string msg = std::to_string(++ m_seq) + " " + choice;
+		setState("midiin", msg.c_str());
+	}
+
+	// The list: Off, All inputs, then the ports.
+	int midiItems() const
+	{
+		return std::min(int(m_midiPortList.size()) + 2, kMenuMaxItems);
+	}
+
+	int midiRows() const { return std::min(midiItems(), kMenuRows); }
+	int midiCols() const { return (midiItems() + kMenuRows - 1) / kMenuRows; }
+
+	Rect midiItem(int i) const
+	{
+		const float left = std::min(kMidiIn.x, kW - 8.0f - float(midiCols()) * kMenuColW);
+		const float top = kBarY - 4.0f - float(midiRows()) * kMenuItemH;
+		return { left + float(i / kMenuRows) * kMenuColW, top + float(i % kMenuRows) * kMenuItemH,
+		         kMenuColW, kMenuItemH };
+	}
+
+	int midiItemAt(float x, float y) const
+	{
+		for (int i = 0; i < midiItems(); i ++)
+			if (midiItem(i).contains(x, y))
+				return i;
+		return -1;
+	}
+
+	std::string midiItemChoice(int i) const
+	{
+		return i == 0 ? std::string() : i == 1 ? std::string(kMidiAll) : m_midiPortList[size_t(i - 2)];
+	}
+
+	void chooseMidi(int i)
+	{
+		const std::string c = midiItemChoice(i);
+		m_midiChoice = c;                   // shown at once; the plugin's answer follows
+		m_midiProblem.clear();
+		sendMidiIn(c);
+	}
+
+	static std::string midiLabel(const std::string &choice)
+	{
+		return choice.empty() ? "Off" : choice == kMidiAll ? "All inputs" : choice;
+	}
+
+	void drawMidiIn()
+	{
+		const Rect &r = kMidiIn;
+		beginPath();
+		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
+		fillColor(Color(30, 30, 33));
+		fill();
+		strokeColor(m_midiMenu ? Color(255, 140, 40) : Color(84, 84, 90));
+		strokeWidth(1);
+		stroke();
+
+		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
+		fontSize(9);
+		fillColor(Color(150, 150, 156));
+		text(r.x + 8, r.y + r.h / 2 + 1, "MIDI IN", nullptr);
+		std::string t = midiLabel(m_midiChoice);
+		if (!m_midiProblem.empty())
+			t += " \xe2\x80\x94 " + m_midiProblem;
+		fillColor(m_midiProblem.empty() ? Color(220, 220, 224) : Color(240, 170, 60));
+		text(r.x + 52, r.y + r.h / 2 + 1, fit(t, r.w - 52 - 22, 10).c_str(), nullptr);
+		// ▾
+		beginPath();
+		moveTo(r.x + r.w - 15, r.y + r.h / 2 - 2);
+		lineTo(r.x + r.w - 7, r.y + r.h / 2 - 2);
+		lineTo(r.x + r.w - 11, r.y + r.h / 2 + 3);
+		closePath();
+		fillColor(Color(200, 200, 204));
+		fill();
+	}
+
+	void drawMidiMenu()
+	{
+		const int n = midiItems();
+		const Rect top = midiItem(0);
+		beginPath();
+		roundedRect(top.x - 1, top.y - 1, float(midiCols()) * kMenuColW + 2, float(midiRows()) * kMenuItemH + 2, 3);
+		fillColor(Color(24, 24, 27));
+		fill();
+		strokeColor(Color(255, 140, 40));
+		strokeWidth(1);
+		stroke();
+		for (int i = 0; i < n; i ++)
+		{
+			const Rect r = midiItem(i);
+			if (i == m_midiHover)
+			{
+				beginPath();
+				rect(r.x, r.y, r.w, r.h);
+				fillColor(Color(60, 44, 24));
+				fill();
+			}
+			const std::string c = midiItemChoice(i);
+			const bool current = c == m_midiChoice;
+			textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
+			fontSize(11);
+			fillColor(current ? Color(255, 140, 40) : Color(220, 220, 224));
+			if (current)
+				text(r.x + 8, r.y + r.h / 2 + 1, "\xe2\x9c\x93", nullptr);
+			text(r.x + 26, r.y + r.h / 2 + 1, fit(midiLabel(c), r.w - 34, 11).c_str(), nullptr);
+			if (i == 1)
+			{
+				beginPath();                // the ports below a line
+				rect(r.x + 6, r.y + r.h - 0.5f, r.w - 12, 1);
+				fillColor(Color(60, 60, 66));
+				fill();
+			}
+		}
 	}
 
 	// Cut text to a width, with an ellipsis.
@@ -884,6 +1076,10 @@ private:
 	int m_pressed = -1;
 	bool m_dragKnob = false;
 	float m_dragY = 0, m_dragStartDb = 0;
+	bool m_midiOffered = false, m_midiMenu = false;     // MIDI IN, the Windows standalone only
+	std::string m_midiChoice, m_midiProblem;
+	std::vector<std::string> m_midiPortList;
+	int m_midiHover = -1;
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichUI)
 };

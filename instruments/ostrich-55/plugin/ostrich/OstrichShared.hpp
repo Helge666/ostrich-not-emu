@@ -66,6 +66,8 @@ enum States : uint32_t
 	kStateRomSet,               ///< DSP -> UI: which ROM images were found, see below
 	kStateRomFile,              ///< UI -> DSP, "<n> <path>": a file to find ROM images by
 	kStateReset,                ///< UI -> DSP, "<n> gs|gm": a GS or GM reset into MIDI IN
+	kStateMidiIn,               ///< UI -> DSP, "<n> <choice>": the standalone's MIDI IN, see below
+	kStateMidiPorts,            ///< DSP -> UI: the standalone's MIDI IN ports, see below
 	kStateCount
 };
 
@@ -80,6 +82,14 @@ constexpr const char *kRomSizes[kRomSlots] = { "32 KB", "256 KB", "1 MB", "1 MB"
 /// missing, else "found"; then the version of the set that runs (or would), e.g. "v1.21";
 /// then the folder new images are copied to.
 constexpr char kFieldSep = '\x1f';
+
+/// The Windows standalone's own MIDI IN (MidiInput.hpp).  "midiports" is empty where there
+/// is none (plugins, Linux); else fields separated by kFieldSep: the choice ("" off, "*"
+/// all inputs, or a port's name), what went wrong with it (empty when nothing), then the
+/// ports there are.  "midiin" sends a new choice, "<n> <choice>"; "<n> ?" only asks for the
+/// ports again (a keyboard plugged in since).
+constexpr const char *kMidiAll = "*";
+constexpr const char *kMidiRescan = "?";
 
 /// The LCD as the UI draws it.  Sent as hex, only when it changed.
 struct PanelBlob

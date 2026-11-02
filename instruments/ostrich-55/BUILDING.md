@@ -53,7 +53,10 @@ Each run, in order:
 The Windows binaries are statically linked and depend on nothing beyond Windows. The
 standalone uses DPF's RtAudio backend on Windows and JACK on Linux.
 
-## 4. The installer
+## 4. The installer (not released yet)
+
+Written, not yet built or used: it comes later, together with one for Ostrich 220
+(ROADMAP.md).
 
 ```sh
 installer/build.sh          # -> installer/Ostrich55-Setup-<version>.exe

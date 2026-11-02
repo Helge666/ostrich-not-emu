@@ -3,7 +3,7 @@
 ## About the project
 
 An emulation of the Roland SC-55 Sound Canvas (1991) as a DAW plugin (VST3, CLAP,
-standalone) with a Windows installer. The emulation is Nuked-SC55 (nukeykt), in J.C.
+standalone); a Windows installer is planned. The emulation is Nuked-SC55 (nukeykt), in J.C.
 Moyer's fork, used unmodified; this project adds the plugin around it. The sister of
 Ostrich 220 (U-220). README.md says what it does, BUILDING.md how to build it, ROADMAP.md
 what is open.

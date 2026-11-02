@@ -5,13 +5,16 @@ standalone program. A non-commercial fan project, the sister of
 [Ostrich 220](https://github.com/Helge666/ostrich220).
 
 The emulation is **[Nuked-SC55](https://github.com/nukeykt/Nuked-SC55)** by nukeykt, in
-[J.C. Moyer's fork](https://github.com/jcmoyer/Nuked-SC55): it runs the SC-55's **original
-firmware** on emulated CPUs and a PCM chip emulated from the decapped die. Everything the
-firmware does comes along by itself: the sounds, GS and GM, the effects, the display. Ostrich
-55 adds the plugin around it: VST3, CLAP and a standalone program, a panel after the unit,
-a ROM setup that finds the images by their contents, and a Windows installer.
+[J.C. Moyer's fork](https://github.com/jcmoyer/Nuked-SC55) (see [Origin and
+thanks](#origin-and-thanks)): it runs the SC-55's **original firmware** on emulated CPUs and
+an emulated PCM chip. Everything the firmware does comes along by itself: the sounds, GS
+and GM, the effects, the display. Ostrich 55 adds the plugin around it: VST3, CLAP and a
+standalone program, a panel after the unit, and a ROM setup that finds the images by their
+contents.
 
 You need your own ROM images. **This repository contains no Roland data and never will.**
+
+![Ostrich 55](docs/ostrich55.png)
 
 ## What it does
 
@@ -23,18 +26,20 @@ You need your own ROM images. **This repository contains no Roland data and neve
 - **GS RESET and GM RESET** in the bar under the panel.
 - **MIDI timing:** every event reaches the emulated MIDI IN at its place in the host's
   block; the firmware reads it byte by byte from its serial port, as on the unit.
-- The core runs at 64 kHz (Nuked-SC55's oversampling, as the unit's DAC gets it); a
-  windowed-sinc resampler brings it to the host's rate.
+- The core runs at 64 kHz (Nuked-SC55's oversampling, on by default); a windowed-sinc
+  resampler brings it to the host's rate.
 
-Formats: VST3, CLAP and a standalone program on Windows (64-bit, with an installer); VST3,
-CLAP and a JACK standalone on Linux. No macOS build.
+Formats: VST3, CLAP and a standalone program on Windows (64-bit); VST3, CLAP and a JACK
+standalone on Linux. No macOS build.
 
 ## Installing (Windows)
 
-1. Run `Ostrich55-Setup-<version>.exe`. It installs the VST3 and CLAP plugins into
-   `C:\Program Files\Common Files\` and the standalone program with a Start menu entry
-   (each one can be left out), and makes the ROM folder `C:\ProgramData\Ostrich 55\roms`.
-2. Load Ostrich 55 in your DAW (or start it from the Start menu). The first time, it asks
+There is no release yet: build it from source ([BUILDING.md](BUILDING.md)). Releases will
+come as a zip, later with an installer.
+
+1. Copy `Ostrich55.vst3` to `C:\Program Files\Common Files\VST3\` (or
+   `%LOCALAPPDATA%\Programs\Common\VST3\`), or `Ostrich55.clap` to the CLAP folder.
+2. Load Ostrich 55 in your DAW (or start `Ostrich55.exe`). The first time, it asks
    for the ROM images: click **CHOOSE FILE** and pick any one of your SC-55 ROM images, or
    a zip with them. Ostrich 55 finds the others in the same folder by their contents,
    whatever their names, copies them to `C:\ProgramData\Ostrich 55\roms\` and starts.
@@ -67,8 +72,9 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
 
 ## Known limitations
 
-- **No SysEx into the VST3** yet: DPF's VST3 wrapper does not take SysEx input, and GS
-  songs use SysEx. The CLAP and the standalone take it. See [ROADMAP.md](ROADMAP.md).
+- **No SysEx into the VST3** yet: DPF's VST3 wrapper does not take SysEx input, so GS
+  setup messages from a DAW track do not reach it (GS RESET and GM RESET on the panel do).
+  The CLAP and the standalone take SysEx. See [ROADMAP.md](ROADMAP.md).
 - Only the SC-55 (mk1) so far; Nuked-SC55 also knows the SC-55mk2, SC-55st, CM-300/SCC-1,
   SC-155 and others (ROADMAP.md).
 - The SC-55 forgets its panel settings at power-off, and so does Ostrich 55: a session
@@ -77,8 +83,9 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
   there is no choice of device, no ASIO and no exclusive mode (DPF's standalone has none).
   Expect a few tens of milliseconds from key to sound; the VST3 or CLAP in a DAW with ASIO
   is faster.
-- **Tested:** the build, and the plugin headless (`ostrich_clap_render`) on Linux. Not yet
-  in a DAW.
+- **Tested:** the VST3 in a DAW on Windows, the Windows standalone with a USB keyboard
+  (MIDI IN, BUFFER), the CLAP headless on Linux (`ostrich_clap_render`). Not yet: the CLAP
+  in a DAW, the Linux builds in use.
 
 ## Building
 
@@ -86,14 +93,24 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
 
 ## Origin and thanks
 
-The emulation is entirely **Nuked-SC55**: nukeykt's reverse engineering of the SC-55 (the
-PCM chip from its decapped die, the two MCUs from their datasheets), with the work of John
-McMaster (PCM chip decap), org/ogamespec (deroute), Wohlstand, mattw, HardWareMan, giulioz,
-Cloudschatze, NikitaLita, Karmeck and others named in its README; and **J.C. Moyer's fork**,
-which turned it into a library with ROM detection by hash, tests and faster code. nukeykt
-has stopped working on Nuked-SC55 and archived it in 2026, relicensed under the GPL 2.0 or
-later; Ostrich 55 follows the licence to the letter and keeps every notice. Please report
-emulation bugs to us, not to nukeykt.
+The emulation is entirely **Nuked-SC55**, and all credit for it goes to its authors:
+
+- **nukeykt** (Copyright © 2021, 2024): the reverse engineering of the SC-55 and the
+  emulator, [nukeykt/Nuked-SC55](https://github.com/nukeykt/Nuked-SC55).
+- **J.C. Moyer** (Copyright © 2024–2026): the fork Ostrich 55 builds on,
+  [jcmoyer/Nuked-SC55](https://github.com/jcmoyer/Nuked-SC55), which turned the emulator
+  into a library, recognises the ROMs by their hashes, adds tests and makes it faster.
+- And, as Nuked-SC55's README thanks them: John McMaster (SC-55 PCM chip decap),
+  org/ogamespec (deroute tool), the SDL team, Wohlstand (Linux/macOS port), mattw,
+  HardWareMan, giulioz (JV-880 support), Cloudschatze, NikitaLita, Karmeck, Falcosoft, and
+  Michael Mouton (ROM hashes and tests; Ostrich 55 recognises the images by them).
+
+nukeykt has archived Nuked-SC55 and relicensed it under the GPL 2.0 or later. Ostrich 55
+uses its backend unmodified, keeps every notice and follows the licence. Please report bugs
+you find in Ostrich 55 here, not to nukeykt or J.C. Moyer.
+
+Ostrich 55's plugin follows [Ostrich 220](https://github.com/Helge666/ostrich220), whose
+resampler comes from Elliott H. Liggett's emu110 / Voltaire 110.
 
 Submodules:
 

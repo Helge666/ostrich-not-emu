@@ -14,6 +14,7 @@
 
 #include "sc55_core.h"
 
+#include "diagnostics.h"
 #include "emu.h"
 #include "rom.h"
 #include "rom_io.h"
@@ -23,6 +24,14 @@
 #include <atomic>
 #include <cstring>
 #include <mutex>
+
+// rom_io.cpp's descrambler for wave ROM dumps; Nuked-SC55 uses it only inside LoadRomset(),
+// which reads files, and declares it in no header.
+void unscramble(const uint8_t *src, uint8_t *dst, int len);
+
+// lcd_font.h defines the character table (not only declares it) and lcd.cpp includes it:
+// declared here, the definition comes from lcd.o.
+extern uint8_t lcd_font[240][10];
 
 namespace sc55 {
 
@@ -38,11 +47,24 @@ public:
 	void Render() override {}
 };
 
+/// Nuked-SC55 prints its diagnostics to stdout, also debug notes on every boot; a plugin
+/// keeps quiet.  Errors and warnings go to stderr.
+void quietDiagnostics(Diag_Category category, std::string_view message)
+{
+	if (category == Diag_Category::Error || category == Diag_Category::Warning)
+		std::fprintf(stderr, "Nuked-SC55: %.*s", int(message.size()), message.data());
+}
+
 } // namespace
 
 const char *romLocationName(unsigned location)
 {
-	return location < kRomLocations ? ToCString(RomLocation(location)) : "?";
+	return location < kRomLocations ? ToCString(::RomLocation(location)) : "?";
+}
+
+const uint8_t *lcdGlyph(uint8_t code)
+{
+	return code >= 16 ? lcd_font[code - 16] : lcd_font[0];
 }
 
 std::vector<RomsetPart> identifyRom(const uint8_t *data, size_t size)
@@ -105,10 +127,13 @@ struct Core::Impl
 	}
 };
 
-Core::Core() : m(std::make_unique<Impl>()) {}
+Core::Core() : m(std::make_unique<Impl>())
+{
+	Diag_SetCallback(&quietDiagnostics);
+}
 Core::~Core() = default;
 
-bool Core::start(const std::string &romset, const std::array<std::string, kRomLocations> &paths,
+bool Core::start(const std::string &romset, std::array<std::vector<uint8_t>, kRomLocations> images,
 		std::string &error)
 {
 	m_running = false;
@@ -127,26 +152,22 @@ bool Core::start(const std::string &romset, const std::array<std::string, kRomLo
 	for (unsigned i = 0; i < kRomLocations; i ++)
 		if (def->ContainsHash(::RomLocation(i)))
 		{
-			if (paths[i].empty())
+			std::vector<uint8_t> &img = images[i];
+			if (img.empty() || img.size() > RomSize(::RomLocation(i)))
 			{
-				error = std::string("no image for ") + romLocationName(i);
+				error = std::string(img.empty() ? "no image for " : "image too large for ") + romLocationName(i);
 				return false;
 			}
-			m->roms.rom_paths[i] = std::filesystem::u8path(paths[i]);
+			if (IsWaverom(::RomLocation(i)))
+			{
+				// As rom_io.cpp's LoadRomset does it for files: the dump in address order of
+				// the chip, the emulator wants it in the order the PCM chip reads it.
+				m->roms.rom_data[i].resize(img.size());
+				unscramble(img.data(), m->roms.rom_data[i].data(), int(img.size()));
+			}
+			else
+				m->roms.rom_data[i] = std::move(img);
 		}
-
-	RomLoadStatusSet status;
-	if (!LoadRomset(m->roms, &status))
-	{
-		for (unsigned i = 0; i < kRomLocations; i ++)
-			if (status[i] == RomLoadStatus::Failed)
-			{
-				error = std::string("cannot read ") + paths[i];
-				return false;
-			}
-		error = "cannot read the ROM images";
-		return false;
-	}
 
 	if (!m->emu.Init({ .lcd_backend = &m->lcd, .nvram_filename = {} }))
 	{
@@ -200,6 +221,17 @@ void Core::render(float *left, float *right, uint32_t frames)
 	m->got = 0;
 	while (m->got < frames)
 		m->emu.Step();
+}
+
+void Core::skip(uint32_t frames)
+{
+	float l[256], r[256];
+	while (frames > 0)
+	{
+		const uint32_t n = frames < 256 ? frames : 256;
+		render(l, r, n);
+		frames -= n;
+	}
 }
 
 void Core::setButtons(uint32_t mask)

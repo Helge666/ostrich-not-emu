@@ -61,3 +61,6 @@ __pycache__/
 *.pyc
 .claude/
 .claude.json
+
+# The Windows installer (installer/build.sh)
+installer/*.exe

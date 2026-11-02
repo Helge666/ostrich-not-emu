@@ -133,7 +133,10 @@ int main(int argc, char **argv)
 			continue;
 		const std::vector<uint8_t> data = readFile(e.path());
 		for (const sc55::RomsetPart &p : sc55::identifyRom(data.data(), data.size()))
-			sets[p.romset][p.location] = e.path().u8string();
+		{
+			const std::u8string u8 = e.path().u8string();
+			sets[p.romset][p.location] = std::string(u8.begin(), u8.end());
+		}
 	}
 	std::string chosen;
 	for (const std::string &name : sc55::romsetsOfFamily("mk1"))
@@ -151,9 +154,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	std::array<std::vector<uint8_t>, sc55::kRomLocations> images;
+	for (unsigned loc : sc55::romsetLocations(chosen))
+		images[loc] = readFile(fs::path(reinterpret_cast<const char8_t *>(sets[chosen][loc].c_str())));
 	sc55::Core core;
 	std::string error;
-	if (!core.start(chosen, sets[chosen], error))
+	if (!core.start(chosen, std::move(images), error))
 	{
 		std::fprintf(stderr, "%s: %s\n", chosen.c_str(), error.c_str());
 		return 1;
@@ -177,6 +183,22 @@ int main(int argc, char **argv)
 	}
 	const double offset = argc > 4 ? 1.5 : 0.0;       // a MIDI file starts after the boot
 
+	// SC55_KEYS="bit@seconds,...": panel keys (sc55_core.h, Button) held for 0.1 s.
+	struct Press { unsigned bit; double at; };
+	std::vector<Press> presses;
+	if (const char *keys = std::getenv("SC55_KEYS"))
+		for (const char *p = keys; *p; )
+		{
+			unsigned bit = 0;
+			double at = 0;
+			int used = 0;
+			if (std::sscanf(p, "%u@%lf%n", &bit, &at, &used) != 2)
+				break;
+			presses.push_back({ bit, at });
+			p += used;
+			if (*p == ',') p ++;
+		}
+
 	std::vector<float> L(size_t(seconds * rate)), R(L.size());
 	const uint32_t block = 64;
 	size_t next = 0;
@@ -188,6 +210,11 @@ int main(int argc, char **argv)
 			core.midi(events[next].bytes.data(), events[next].bytes.size());
 			next ++;
 		}
+		uint32_t mask = 0;
+		for (const Press &k : presses)
+			if (double(pos) >= k.at * rate && double(pos) < (k.at + 0.1) * rate)
+				mask |= 1u << k.bit;
+		core.setButtons(mask);
 		core.render(&L[pos], &R[pos], uint32_t(std::min<size_t>(block, L.size() - pos)));
 	}
 	const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

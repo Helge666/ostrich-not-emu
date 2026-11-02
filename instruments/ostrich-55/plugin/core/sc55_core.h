@@ -61,6 +61,11 @@ struct LcdState
 	bool enabled;               ///< the firmware has switched the display on
 };
 
+/// The LCD controller's character ROM as Nuked-SC55 has it: for a character code of 16 or
+/// more, its rows top down, bit 4 the leftmost of 5 dots (7 rows, 10 for the few with
+/// descenders).  Codes below 16 are the custom glyphs, LcdState::cgram.
+const uint8_t *lcdGlyph(uint8_t code);
+
 /// The front-panel keys, as bits of setButtons().  The values are Nuked-SC55's key
 /// matrix positions (mcu.h, MCU_BUTTON_*).
 enum Button : unsigned
@@ -94,11 +99,15 @@ public:
 	Core(const Core &) = delete;
 	Core &operator=(const Core &) = delete;
 
-	/// Loads the set `romset` ("mk1-v1.21") from the files in `paths` (one per RomLocation,
-	/// empty where unused), as dumped: the wave ROMs are descrambled here.  Starts the
-	/// machine from power-on.  `error` says what went wrong.
-	bool start(const std::string &romset, const std::array<std::string, kRomLocations> &paths,
+	/// Loads the set `romset` ("mk1-v1.21") from `images` (one per RomLocation, empty where
+	/// unused), as dumped: the wave ROMs are descrambled here.  Starts the machine from
+	/// power-on.  `error` says what went wrong.
+	bool start(const std::string &romset, std::array<std::vector<uint8_t>, kRomLocations> images,
 			std::string &error);
+
+	/// Runs `frames` frames at sampleRate() and throws the sound away: the boot, before
+	/// the host's first block.
+	void skip(uint32_t frames);
 
 	bool running() const { return m_running; }
 	const std::string &romset() const { return m_romset; }

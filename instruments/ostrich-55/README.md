@@ -34,8 +34,9 @@ standalone on Linux. No macOS build.
 
 ## Installing (Windows)
 
-There is no release yet: build it from source ([BUILDING.md](BUILDING.md)). Releases will
-come as a zip, later with an installer.
+**[Download Ostrich 55](https://github.com/Helge666/ostrich55/releases/latest)** (Windows
+and Linux zips; an installer will follow), or build it from source
+([BUILDING.md](BUILDING.md)).
 
 1. Copy `Ostrich55.vst3` to `C:\Program Files\Common Files\VST3\` (or
    `%LOCALAPPDATA%\Programs\Common\VST3\`), or `Ostrich55.clap` to the CLAP folder.

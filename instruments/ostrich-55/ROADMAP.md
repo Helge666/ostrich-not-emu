@@ -30,7 +30,8 @@ emulation itself stays Nuked-SC55's, unmodified.
       the unit, where there are any.
 - [x] GitHub: [Helge666/ostrich55](https://github.com/Helge666/ostrich55) (2.11.2026), with
       both submodule pins pushed.
-- [ ] CI like Ostrich 220: Linux and Windows builds without ROMs, smoke test, zips,
+- [x] CI like Ostrich 220: Linux and Windows builds without ROMs, smoke test, zips with
+      the licence texts,
       release on a `v*` tag.
 
 ## Open

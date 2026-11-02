@@ -15,6 +15,10 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 | stb_truetype, stb_image | `plugin/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
 | DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`plugin/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
 | RtAudio | the Windows standalone's audio, through DPF | MIT-style (RtAudio licence) | Gary P. Scavone |
+| RtMidi | built into the standalone through DPF (Ostrich 55 opens its MIDI IN itself) | MIT-style (RtMidi licence) | Gary P. Scavone |
+
+The release zips carry these licence texts in their folder `licenses`, next to the GPL 3.0
+(`LICENSE`).
 
 Nuked-SC55 was first published under a non-commercial licence; nukeykt relicensed it under
 the GPL 2.0 or later in 2026. Ostrich 55 uses the backend as it is, unmodified, from our

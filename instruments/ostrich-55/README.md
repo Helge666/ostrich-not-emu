@@ -58,8 +58,12 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
   input, one port, all of them or none; the list is read again each time it opens, so a
   keyboard plugged in later shows up. The first start listens to all inputs; the choice is
   kept in `%LOCALAPPDATA%\Ostrich 55\standalone-midi-in.txt`. A port another program
-  holds cannot be opened; the field says so. In a DAW the plugin gets its MIDI from the
-  track, as any instrument.
+  holds cannot be opened; the field says so. Each message is placed in the audio by the
+  time it came in, so the delay from key to sound is steady rather than jittery. In a DAW
+  the plugin gets its MIDI from the track, as any instrument.
+- **BUFFER** (the standalone without JACK): the audio block size, 64 to 1024 frames;
+  smaller is faster to respond and costs more CPU. Kept in
+  `%LOCALAPPDATA%\Ostrich 55\standalone-buffer.txt`.
 
 ## Known limitations
 
@@ -69,8 +73,10 @@ Folders searched, in this order: `%OSTRICH55_ROMS%`, `%PROGRAMDATA%\Ostrich 55\r
   SC-155 and others (ROADMAP.md).
 - The SC-55 forgets its panel settings at power-off, and so does Ostrich 55: a session
   restores what its MIDI sets, not what was set on the panel.
-- The Windows standalone plays on Windows' default audio device; there is no choice of
-  device or buffer size (DPF's standalone has none).
+- The Windows standalone plays on Windows' default audio device, in WASAPI shared mode;
+  there is no choice of device, no ASIO and no exclusive mode (DPF's standalone has none).
+  Expect a few tens of milliseconds from key to sound; the VST3 or CLAP in a DAW with ASIO
+  is faster.
 - **Tested:** the build, and the plugin headless (`ostrich_clap_render`) on Linux. Not yet
   in a DAW.
 

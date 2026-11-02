@@ -6,6 +6,7 @@
 #include "MidiInput.hpp"
 
 #include <algorithm>
+#include <chrono>
 
 #ifdef _WIN32
 # ifndef NOMINMAX
@@ -54,7 +55,7 @@ size_t shortLength(uint8_t status)
 struct MidiInput::Port
 {
 	static constexpr int kBuffers = 4;
-	static constexpr DWORD kBufferSize = 4096;      // a GS setup message is far shorter
+	static constexpr DWORD kBufferSize = DWORD(kMaxMessage);    // a GS setup message is far shorter
 
 	MidiInput *owner = nullptr;
 	HMIDIIN handle = nullptr;
@@ -116,6 +117,18 @@ struct MidiInput::Port
 
 bool MidiInput::supported() { return true; }
 
+double MidiInput::now()
+{
+	static const double tick = [] {
+		LARGE_INTEGER f;
+		QueryPerformanceFrequency(&f);
+		return 1.0 / double(f.QuadPart);
+	}();
+	LARGE_INTEGER c;
+	QueryPerformanceCounter(&c);
+	return double(c.QuadPart) * tick;
+}
+
 std::vector<std::string> MidiInput::ports()
 {
 	std::vector<std::string> names;
@@ -169,6 +182,11 @@ struct MidiInput::Port {};
 
 bool MidiInput::supported() { return false; }
 std::vector<std::string> MidiInput::ports() { return {}; }
+
+double MidiInput::now()
+{
+	return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 std::string MidiInput::open(const std::string &) { return std::string(); }
 
 #endif
@@ -185,27 +203,53 @@ void MidiInput::close()
 	m_open.clear();
 }
 
+void MidiInput::put(size_t at, const void *data, size_t n)
+{
+	const uint8_t *p = static_cast<const uint8_t *>(data);
+	for (size_t i = 0; i < n; i ++)
+		m_ring[(at + i) & (kRing - 1)] = p[i];
+}
+
+void MidiInput::get(size_t at, void *data, size_t n) const
+{
+	uint8_t *p = static_cast<uint8_t *>(data);
+	for (size_t i = 0; i < n; i ++)
+		p[i] = m_ring[(at + i) & (kRing - 1)];
+}
+
 void MidiInput::push(const uint8_t *data, size_t n)
 {
+	if (n == 0 || n > kMaxMessage)
+		return;
+	const double t = now();
+	const uint32_t len = uint32_t(n);
 	std::lock_guard<std::mutex> lock(m_push);
 	const size_t w = m_write.load(std::memory_order_relaxed);
 	const size_t r = m_read.load(std::memory_order_acquire);
-	if (kRing - (w - r) < n)
+	if (kRing - (w - r) < kHeader + n)
 		return;
-	for (size_t i = 0; i < n; i ++)
-		m_ring[(w + i) & (kRing - 1)] = data[i];
-	m_write.store(w + n, std::memory_order_release);
+	put(w, &t, sizeof(t));
+	put(w + sizeof(t), &len, sizeof(len));
+	put(w + kHeader, data, n);
+	m_write.store(w + kHeader + n, std::memory_order_release);
 }
 
-size_t MidiInput::read(uint8_t *out, size_t n)
+size_t MidiInput::pop(double until, uint8_t *out, double &time)
 {
 	const size_t r = m_read.load(std::memory_order_relaxed);
 	const size_t w = m_write.load(std::memory_order_acquire);
-	const size_t k = std::min(n, w - r);
-	for (size_t i = 0; i < k; i ++)
-		out[i] = m_ring[(r + i) & (kRing - 1)];
-	m_read.store(r + k, std::memory_order_release);
-	return k;
+	if (w - r < kHeader)
+		return 0;
+	double t = 0.0;
+	uint32_t len = 0;
+	get(r, &t, sizeof(t));
+	if (t > until)
+		return 0;
+	get(r + sizeof(t), &len, sizeof(len));
+	get(r + kHeader, out, len);
+	m_read.store(r + kHeader + len, std::memory_order_release);
+	time = t;
+	return len;
 }
 
 } // namespace ostrich

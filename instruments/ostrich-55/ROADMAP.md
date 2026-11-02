@@ -14,7 +14,7 @@ installer; the emulation itself stays Nuked-SC55's, unmodified.
 - **Plugin** (VST3, CLAP, standalone; Windows and Linux): panel with the LCD, the keys,
   VOLUME and the MIDI MESSAGE lamp; GS and GM reset; ROM setup in the panel (loose files
   or zips); keyboard and mouse wheel for the keys; a MIDI IN port choice in the Windows
-  standalone (WinMM; the port list checked on Windows, playing from a keyboard not yet).
+  standalone (WinMM, time-stamped; played from a keyboard on Windows), a BUFFER choice.
 - **Installer** for Windows (NSIS): VST3, CLAP, standalone, the ROM folder in ProgramData.
 - **Tested:** the build; the CLAP headless on Linux (`ostrich_clap_render`) at 44.1 and
   48 kHz, with and without ROMs; panel keys change the firmware's state. **Not yet** in a
@@ -41,6 +41,7 @@ installer; the emulation itself stays Nuked-SC55's, unmodified.
 | SysEx into the VST3 | DPF's VST3 wrapper leaves SysEx input out (a `TODO` in `DistrhoPluginVST3.cpp`). GS songs need it (GS reset, part setup, effects). A change in our DPF fork (DPF-LOGAN.md: in `dpf-logan`, a commit on `logan`, a new tag, after Helge confirms). The CLAP and the standalone take SysEx already. |
 | Load a MIDI/SysEx file from the panel | to send a song's setup to the unit without a DAW track, as the U-220 panel does |
 | ROM version | with several mk1 sets installed, v1.21 is played first; a choice in the panel or the state |
+| Standalone latency | WASAPI shared mode with RtAudio: callbacks come in bursts of one device period (~10 ms), so steady MIDI timing costs about half a period on average. Lower: WASAPI low-latency shared mode (IAudioClient3) or ASIO in the standalone, both changes to RtAudio in our DPF fork (DPF-LOGAN.md, after Helge confirms). |
 
 ### Later
 

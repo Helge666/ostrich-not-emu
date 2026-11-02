@@ -545,9 +545,13 @@ protected:
 			std::memset(outL, 0, sizeof(float) * frames);
 			std::memset(outR, 0, sizeof(float) * frames);
 			// Played while nothing listens: gone, not played all at once later.
-			uint8_t drop[256];
-			while (m_ownMidi && m_midiIn.read(drop, sizeof(drop)) > 0)
-				;
+			if (m_ownMidi)
+			{
+				double t;
+				while (m_midiIn.pop(1e300, m_ownData, t) > 0)
+					;
+				m_midiEnd = 0.0;
+			}
 			if (lock.owns_lock() && m_core.running())
 				setupRate(m_hostRate);          // a machine of another rate came up
 			publishPanel(frames, lock.owns_lock());
@@ -568,35 +572,41 @@ protected:
 				m_core.midi(kGmReset, sizeof(kGmReset));
 		}
 
-		// The standalone's own MIDI IN: what came in since the last block, at its start.
-		if (m_ownMidi)
-		{
-			uint8_t in[256];
-			for (size_t n; (n = m_midiIn.read(in, sizeof(in))) > 0; )
-			{
-				m_core.midi(in, n);
-				m_midiSeen = true;
-			}
-		}
+		const uint32_t own = m_ownMidi ? collectOwnMidi(frames) : 0;
 
-		// MIDI in at its place in the block: the core is rendered up to each event.  The
-		// firmware then reads the bytes from its serial port one by one, as from a cable.
+		// MIDI in at its place in the block, the host's and the standalone's own merged: the
+		// core is rendered up to each event.  The firmware then reads the bytes from its
+		// serial port one by one, as from a cable.
 		float *const cl = m_coreBuf[0].data(), *const cr = m_coreBuf[1].data();
 		uint32_t done = 0;
-		for (uint32_t i = 0; i < midiEventCount; i ++)
+		for (uint32_t i = 0, o = 0; i < midiEventCount || o < own; )
 		{
-			const MidiEvent &ev = midiEvents[i];
-			const uint8_t *data = ev.size > MidiEvent::kDataSize ? ev.dataExt : ev.data;
-			if (ev.size == 0 || data == nullptr)
+			uint32_t frame, size;
+			const uint8_t *data;
+			if (o < own && (i >= midiEventCount || m_own[o].frame < midiEvents[i].frame))
+			{
+				frame = m_own[o].frame;
+				size = m_own[o].size;
+				data = m_ownData + m_own[o].offset;
+				o ++;
+			}
+			else
+			{
+				const MidiEvent &ev = midiEvents[i ++];
+				frame = ev.frame;
+				size = ev.size;
+				data = ev.size > MidiEvent::kDataSize ? ev.dataExt : ev.data;
+			}
+			if (size == 0 || data == nullptr)
 				continue;
-			uint32_t at = uint32_t(double(ev.frame) * m_coreRate / m_hostRate);
+			uint32_t at = uint32_t(double(frame) * m_coreRate / m_hostRate);
 			at = std::min(at, coreFrames);
 			if (at > done)
 			{
 				m_core.render(cl + done, cr + done, at - done);
 				done = at;
 			}
-			m_core.midi(data, ev.size);
+			m_core.midi(data, size);
 			m_midiSeen = true;
 		}
 		if (done < coreFrames)
@@ -691,7 +701,54 @@ private:
 
 	// ---- the standalone's MIDI IN (MidiInput.hpp) ---------------------------------------
 	//
-	// On the thread that sets states (the UI's); run() only reads what came in.
+	// run() places what came in by its time stamp, one block late: block k plays what came
+	// in during [m_midiEnd - its length, m_midiEnd).  m_midiEnd moves on by the block's
+	// length in audio time, not by the clock: WASAPI calls in bursts (several small blocks
+	// at once, then a pause), and a clock read at each call would pile a burst's notes up.
+	// It never runs ahead of the clock, and it is pulled towards the clock once a second
+	// by the smallest lag seen, so that the two clocks' drift does not add up.  The latency
+	// is then a block, steady, instead of 0 .. 1 block.
+
+	uint32_t collectOwnMidi(uint32_t frames)
+	{
+		if (frames == 0)
+			return 0;
+		const double now = MidiInput::now();
+		const double len = double(frames) / m_hostRate;
+		double end = m_midiEnd + len;
+		if (m_midiEnd == 0.0 || end > now || end < now - 0.25)
+			end = now;                      // the first block, ahead, or after a stall
+		m_midiMinLag = std::min(m_midiMinLag, now - end);
+		m_midiLagSpan += len;
+		if (m_midiLagSpan >= 1.0)
+		{
+			if (m_midiMinLag > 0.0005)
+				end += (m_midiMinLag - 0.0005) * 0.5;
+			m_midiMinLag = 1e9;
+			m_midiLagSpan = 0.0;
+		}
+		m_midiEnd = end;
+		const double start = end - len;
+
+		uint32_t n = 0;
+		size_t used = 0;
+		double t = 0.0;
+		while (n < kOwnMax && used + MidiInput::kMaxMessage <= sizeof(m_ownData))
+		{
+			const size_t size = m_midiIn.pop(end, m_ownData + used, t);
+			if (size == 0)
+				break;
+			const double f = std::floor((t - start) * m_hostRate);
+			m_own[n].frame = f <= 0.0 ? 0 : std::min(uint32_t(f), frames - 1);
+			m_own[n].offset = uint32_t(used);
+			m_own[n].size = uint32_t(size);
+			used += size;
+			n ++;
+		}
+		return n;
+	}
+
+	// The rest, on the thread that sets states (the UI's); run() only reads what came in.
 
 	void applyMidiIn(const std::string &choice, bool save)
 	{
@@ -1007,6 +1064,12 @@ private:
 	std::string m_midiChoice, m_midiProblem, m_midiPorts;
 	std::vector<std::string> m_midiPortsSeen;
 	std::atomic<bool> m_midiPortsPending { false };
+	// run()'s: the timeline (collectOwnMidi) and what one block took in
+	double m_midiEnd = 0.0, m_midiMinLag = 1e9, m_midiLagSpan = 0.0;
+	static constexpr uint32_t kOwnMax = 512;
+	struct OwnEvent { uint32_t frame, offset, size; };
+	OwnEvent m_own[kOwnMax] = {};
+	uint8_t m_ownData[MidiInput::kMaxMessage * 4] = {};
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichPlugin)
 };

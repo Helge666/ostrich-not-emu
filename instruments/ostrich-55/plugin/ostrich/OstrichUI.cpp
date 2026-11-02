@@ -6,6 +6,7 @@
 // Size handling and the ROM setup follow Ostrich 220's panel.
 
 #include "DistrhoUI.hpp"
+#include "DistrhoStandaloneUtils.hpp"
 #include "OstrichShared.hpp"
 
 #include "sc55_core.h"
@@ -17,6 +18,10 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+# include <direct.h>
+#endif
 
 START_NAMESPACE_DISTRHO
 
@@ -102,6 +107,9 @@ constexpr float kBarBtnH = 18.0f, kBarBtnY = kBarY + (kBarH - kBarBtnH) / 2;
 const Rect kGmReset { kW - 16.0f - 80.0f, kBarBtnY, 80.0f, kBarBtnH };
 const Rect kGsReset { kGmReset.x - 8.0f - 80.0f, kBarBtnY, 80.0f, kBarBtnH };
 const Rect kMidiIn  { kGsReset.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
+const Rect kBufferBtn { kMidiIn.x - 8.0f - 150.0f, kBarBtnY, 150.0f, kBarBtnH };
+constexpr uint kBufferChoices[] = { 64, 128, 256, 512, 1024 };
+constexpr const wchar_t *kBufferFile = L"standalone-buffer.txt";
 // More ports than fit above the bar go into further columns, to the left.
 constexpr float kMenuItemH = 18.0f, kMenuColW = 260.0f;
 constexpr int kMenuRows = int((kBarY - 8.0f) / kMenuItemH);
@@ -235,8 +243,8 @@ protected:
 			drawKeys();
 		}
 		drawBar();
-		if (m_midiMenu)
-			drawMidiMenu();
+		if (m_menu != kMenuNone)
+			drawMenu();
 	}
 
 	bool onMouse(const MouseEvent &ev) override
@@ -249,21 +257,28 @@ protected:
 		if (ev.press)
 		{
 			getWindow().focus();                // for the computer keyboard (onKeyboard)
-			if (m_midiMenu)
+			if (m_menu != kMenuNone)
 			{
 				// A click into the list picks; anywhere else only closes it.
-				const int i = midiItemAt(x, y);
-				m_midiMenu = false;
+				const int i = menuItemAt(x, y);
 				if (i >= 0)
-					chooseMidi(i);
+					menuChoose(i);
+				m_menu = kMenuNone;
 				repaint();
 				return true;
 			}
 			if (m_midiOffered && kMidiIn.contains(x, y))
 			{
-				m_midiMenu = true;
-				m_midiHover = -1;
+				m_menu = kMenuMidi;
+				m_menuHover = -1;
 				sendMidiIn(kMidiRescan);        // the list again: a keyboard plugged in since
+				repaint();
+				return true;
+			}
+			if (bufferOffered() && kBufferBtn.contains(x, y))
+			{
+				m_menu = kMenuBuffer;
+				m_menuHover = -1;
 				repaint();
 				return true;
 			}
@@ -329,12 +344,12 @@ protected:
 	bool onMotion(const MotionEvent &ev) override
 	{
 		const float s = mouseScale();
-		if (m_midiMenu)
+		if (m_menu != kMenuNone)
 		{
-			const int i = midiItemAt(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s);
-			if (i != m_midiHover)
+			const int i = menuItemAt(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s);
+			if (i != m_menuHover)
 			{
-				m_midiHover = i;
+				m_menuHover = i;
 				repaint();
 			}
 			return true;
@@ -356,9 +371,9 @@ protected:
 	{
 		if (ev.mod & (kModifierControl | kModifierAlt | kModifierSuper))
 			return false;
-		if (m_midiMenu && ev.press && ev.key == kKeyEscape)
+		if (m_menu != kMenuNone && ev.press && ev.key == kKeyEscape)
 		{
-			m_midiMenu = false;
+			m_menu = kMenuNone;
 			repaint();
 			return true;
 		}
@@ -431,6 +446,8 @@ protected:
 		if (!m_frameFitted && std::chrono::steady_clock::now() - m_created < std::chrono::seconds(2))
 			fitHostFrame();
 		saveSizeWhenSettled();
+		if (!m_bufferRestored && bufferOffered())
+			restoreBuffer();
 		if (m_romChecking && std::chrono::steady_clock::now() - m_romAskedAt > std::chrono::seconds(15))
 		{
 			m_romChecking = false;          // no answer: let the user try again
@@ -693,8 +710,10 @@ private:
 		barButton(kGmReset, "GM RESET", false);
 		if (m_midiOffered)
 			drawMidiIn();
+		if (bufferOffered())
+			drawBuffer();
 
-		const float w = (m_midiOffered ? kMidiIn.x : kGsReset.x) - 24 - 16;
+		const float w = (bufferOffered() ? kBufferBtn.x : m_midiOffered ? kMidiIn.x : kGsReset.x) - 24 - 16;
 		fontSize(11);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(m_panel.flags & 1 ? Color(140, 140, 140) : Color(240, 170, 60));
@@ -717,7 +736,9 @@ private:
 		text(r.x + r.w / 2, r.y + r.h / 2 + 1, label, nullptr);
 	}
 
-	// ---- MIDI IN (the Windows standalone) ------------------------------------------------
+	// ---- the standalone's fields: MIDI IN (Windows), BUFFER ------------------------------
+	//
+	// Both open a list upwards, over the panel; one at a time (m_menu).
 
 	void setMidiPorts(const char *value)
 	{
@@ -732,7 +753,8 @@ private:
 		m_midiOffered = part.size() >= 2;
 		if (!m_midiOffered)
 		{
-			m_midiMenu = false;
+			if (m_menu == kMenuMidi)
+				m_menu = kMenuNone;
 			return;
 		}
 		m_midiChoice = part[0];
@@ -746,27 +768,65 @@ private:
 		setState("midiin", msg.c_str());
 	}
 
-	// The list: Off, All inputs, then the ports.
-	int midiItems() const
+	static std::string midiLabel(const std::string &choice)
 	{
-		return std::min(int(m_midiPortList.size()) + 2, kMenuMaxItems);
+		return choice.empty() ? "Off" : choice == kMidiAll ? "All inputs" : choice;
 	}
 
-	int midiRows() const { return std::min(midiItems(), kMenuRows); }
-	int midiCols() const { return (midiItems() + kMenuRows - 1) / kMenuRows; }
-
-	Rect midiItem(int i) const
+	// DPF's own standalone (no JACK) plays through RtAudio, whose block size can change.
+	static bool bufferOffered()
 	{
-		const float left = std::min(kMidiIn.x, kW - 8.0f - float(midiCols()) * kMenuColW);
-		const float top = kBarY - 4.0f - float(midiRows()) * kMenuItemH;
-		return { left + float(i / kMenuRows) * kMenuColW, top + float(i % kMenuRows) * kMenuItemH,
-		         kMenuColW, kMenuItemH };
+		return isUsingNativeAudio() && supportsBufferSizeChanges();
 	}
 
-	int midiItemAt(float x, float y) const
+	static std::string bufferLabel(uint frames, double rate)
 	{
-		for (int i = 0; i < midiItems(); i ++)
-			if (midiItem(i).contains(x, y))
+		char t[48];
+		std::snprintf(t, sizeof(t), "%u  (%.1f ms)", frames, rate > 0.0 ? 1000.0 * frames / rate : 0.0);
+		return t;
+	}
+
+	// The block size saved by the last run, set again once the panel is up.
+	void restoreBuffer()
+	{
+		m_bufferRestored = true;
+		const std::string saved = readSetting(kBufferFile);
+		const unsigned n = unsigned(std::strtoul(saved.c_str(), nullptr, 10));
+		for (uint b : kBufferChoices)
+			if (b == n && n != getBufferSize())
+			{
+				requestBufferSizeChange(n);
+				repaint();
+			}
+	}
+
+	// The list open: Off, All inputs, then the ports -- or the block sizes.
+	int menuItems() const
+	{
+		if (m_menu == kMenuMidi)
+			return std::min(int(m_midiPortList.size()) + 2, kMenuMaxItems);
+		if (m_menu == kMenuBuffer)
+			return int(sizeof(kBufferChoices) / sizeof(kBufferChoices[0]));
+		return 0;
+	}
+
+	int menuRows() const { return std::min(menuItems(), kMenuRows); }
+	int menuCols() const { return (menuItems() + kMenuRows - 1) / kMenuRows; }
+	float menuColW() const { return m_menu == kMenuMidi ? kMenuColW : kBufferBtn.w + 40.0f; }
+
+	Rect menuItem(int i) const
+	{
+		const float x = m_menu == kMenuMidi ? kMidiIn.x : kBufferBtn.x;
+		const float left = std::min(x, kW - 8.0f - float(menuCols()) * menuColW());
+		const float top = kBarY - 4.0f - float(menuRows()) * kMenuItemH;
+		return { left + float(i / kMenuRows) * menuColW(), top + float(i % kMenuRows) * kMenuItemH,
+		         menuColW(), kMenuItemH };
+	}
+
+	int menuItemAt(float x, float y) const
+	{
+		for (int i = 0; i < menuItems(); i ++)
+			if (menuItem(i).contains(x, y))
 				return i;
 		return -1;
 	}
@@ -776,40 +836,55 @@ private:
 		return i == 0 ? std::string() : i == 1 ? std::string(kMidiAll) : m_midiPortList[size_t(i - 2)];
 	}
 
-	void chooseMidi(int i)
+	std::string menuLabel(int i) const
 	{
-		const std::string c = midiItemChoice(i);
-		m_midiChoice = c;                   // shown at once; the plugin's answer follows
-		m_midiProblem.clear();
-		sendMidiIn(c);
+		if (m_menu == kMenuMidi)
+			return midiLabel(midiItemChoice(i));
+		return bufferLabel(kBufferChoices[i], getSampleRate());
 	}
 
-	static std::string midiLabel(const std::string &choice)
+	bool menuCurrent(int i) const
 	{
-		return choice.empty() ? "Off" : choice == kMidiAll ? "All inputs" : choice;
+		if (m_menu == kMenuMidi)
+			return midiItemChoice(i) == m_midiChoice;
+		return kBufferChoices[i] == getBufferSize();
 	}
 
-	void drawMidiIn()
+	void menuChoose(int i)
 	{
-		const Rect &r = kMidiIn;
+		if (m_menu == kMenuMidi)
+		{
+			const std::string c = midiItemChoice(i);
+			m_midiChoice = c;                   // shown at once; the plugin's answer follows
+			m_midiProblem.clear();
+			sendMidiIn(c);
+		}
+		else if (m_menu == kMenuBuffer)
+		{
+			const uint n = kBufferChoices[i];
+			if (n != getBufferSize())
+				requestBufferSizeChange(n);     // restarts the audio; falls back if refused
+			writeSetting(kBufferFile, std::to_string(getBufferSize()));
+		}
+	}
+
+	// A field in the bar: a small name, the value, ▾.
+	void barField(const Rect &r, const char *name, float valueX, const std::string &value, bool open, bool warn)
+	{
 		beginPath();
 		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
 		fillColor(Color(30, 30, 33));
 		fill();
-		strokeColor(m_midiMenu ? Color(255, 140, 40) : Color(84, 84, 90));
+		strokeColor(open ? Color(255, 140, 40) : Color(84, 84, 90));
 		strokeWidth(1);
 		stroke();
 
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fontSize(9);
 		fillColor(Color(150, 150, 156));
-		text(r.x + 8, r.y + r.h / 2 + 1, "MIDI IN", nullptr);
-		std::string t = midiLabel(m_midiChoice);
-		if (!m_midiProblem.empty())
-			t += " \xe2\x80\x94 " + m_midiProblem;
-		fillColor(m_midiProblem.empty() ? Color(220, 220, 224) : Color(240, 170, 60));
-		text(r.x + 52, r.y + r.h / 2 + 1, fit(t, r.w - 52 - 22, 10).c_str(), nullptr);
-		// ▾
+		text(r.x + 8, r.y + r.h / 2 + 1, name, nullptr);
+		fillColor(warn ? Color(240, 170, 60) : Color(220, 220, 224));
+		text(r.x + valueX, r.y + r.h / 2 + 1, fit(value, r.w - valueX - 22, 10).c_str(), nullptr);
 		beginPath();
 		moveTo(r.x + r.w - 15, r.y + r.h / 2 - 2);
 		lineTo(r.x + r.w - 7, r.y + r.h / 2 - 2);
@@ -819,12 +894,25 @@ private:
 		fill();
 	}
 
-	void drawMidiMenu()
+	void drawMidiIn()
 	{
-		const int n = midiItems();
-		const Rect top = midiItem(0);
+		std::string t = midiLabel(m_midiChoice);
+		if (!m_midiProblem.empty())
+			t += " \xe2\x80\x94 " + m_midiProblem;
+		barField(kMidiIn, "MIDI IN", 52, t, m_menu == kMenuMidi, !m_midiProblem.empty());
+	}
+
+	void drawBuffer()
+	{
+		barField(kBufferBtn, "BUFFER", 50, bufferLabel(getBufferSize(), getSampleRate()), m_menu == kMenuBuffer, false);
+	}
+
+	void drawMenu()
+	{
+		const int n = menuItems();
+		const Rect top = menuItem(0);
 		beginPath();
-		roundedRect(top.x - 1, top.y - 1, float(midiCols()) * kMenuColW + 2, float(midiRows()) * kMenuItemH + 2, 3);
+		roundedRect(top.x - 1, top.y - 1, float(menuCols()) * menuColW() + 2, float(menuRows()) * kMenuItemH + 2, 3);
 		fillColor(Color(24, 24, 27));
 		fill();
 		strokeColor(Color(255, 140, 40));
@@ -832,23 +920,22 @@ private:
 		stroke();
 		for (int i = 0; i < n; i ++)
 		{
-			const Rect r = midiItem(i);
-			if (i == m_midiHover)
+			const Rect r = menuItem(i);
+			if (i == m_menuHover)
 			{
 				beginPath();
 				rect(r.x, r.y, r.w, r.h);
 				fillColor(Color(60, 44, 24));
 				fill();
 			}
-			const std::string c = midiItemChoice(i);
-			const bool current = c == m_midiChoice;
+			const bool current = menuCurrent(i);
 			textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 			fontSize(11);
 			fillColor(current ? Color(255, 140, 40) : Color(220, 220, 224));
 			if (current)
 				text(r.x + 8, r.y + r.h / 2 + 1, "\xe2\x9c\x93", nullptr);
-			text(r.x + 26, r.y + r.h / 2 + 1, fit(midiLabel(c), r.w - 34, 11).c_str(), nullptr);
-			if (i == 1)
+			text(r.x + 26, r.y + r.h / 2 + 1, fit(menuLabel(i), r.w - 34, 11).c_str(), nullptr);
+			if (m_menu == kMenuMidi && i == 1)
 			{
 				beginPath();                // the ports below a line
 				rect(r.x + 6, r.y + r.h - 0.5f, r.w - 12, 1);
@@ -856,6 +943,48 @@ private:
 				fill();
 			}
 		}
+	}
+
+	// The standalone's settings, per user: %LOCALAPPDATA%\Ostrich 55\<name> (Windows only;
+	// the plugins have their host's session).
+	static std::string readSetting(const wchar_t *name)
+	{
+		std::string s;
+#ifdef _WIN32
+		if (const wchar_t *d = _wgetenv(L"LOCALAPPDATA"))
+		{
+			const std::wstring p = std::wstring(d) + L"\\Ostrich 55\\" + name;
+			if (FILE *f = _wfopen(p.c_str(), L"rb"))
+			{
+				char buf[256];
+				const size_t n = std::fread(buf, 1, sizeof(buf), f);
+				std::fclose(f);
+				s.assign(buf, n);
+			}
+		}
+#else
+		(void)name;
+#endif
+		return s;
+	}
+
+	static void writeSetting(const wchar_t *name, const std::string &value)
+	{
+#ifdef _WIN32
+		if (const wchar_t *d = _wgetenv(L"LOCALAPPDATA"))
+		{
+			const std::wstring dir = std::wstring(d) + L"\\Ostrich 55";
+			_wmkdir(dir.c_str());
+			if (FILE *f = _wfopen((dir + L"\\" + name).c_str(), L"wb"))
+			{
+				std::fwrite(value.data(), 1, value.size(), f);
+				std::fclose(f);
+			}
+		}
+#else
+		(void)name;
+		(void)value;
+#endif
 	}
 
 	// Cut text to a width, with an ellipsis.
@@ -1076,10 +1205,12 @@ private:
 	int m_pressed = -1;
 	bool m_dragKnob = false;
 	float m_dragY = 0, m_dragStartDb = 0;
-	bool m_midiOffered = false, m_midiMenu = false;     // MIDI IN, the Windows standalone only
+	bool m_midiOffered = false;                 // MIDI IN, the Windows standalone only
 	std::string m_midiChoice, m_midiProblem;
 	std::vector<std::string> m_midiPortList;
-	int m_midiHover = -1;
+	bool m_bufferRestored = false;
+	enum { kMenuNone, kMenuMidi, kMenuBuffer };
+	int m_menu = kMenuNone, m_menuHover = -1;
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichUI)
 };

@@ -22,17 +22,21 @@ emulation itself stays Nuked-SC55's, unmodified.
   set; the CLAP headless on Linux (`ostrich_clap_render`) at 44.1 and 48 kHz, with and
   without ROMs.
 
-## Before the first public release (0.1)
+## Releases
 
 - [x] Test on Windows: the VST3, the standalone, the ROM dialog with a real set.
-- [ ] The CLAP in a DAW.
-- [ ] Old songs: play a few GS songs through it and compare with memory and recordings of
-      the unit, where there are any.
 - [x] GitHub: [Helge666/ostrich55](https://github.com/Helge666/ostrich55) (2.11.2026), with
       both submodule pins pushed.
 - [x] CI like Ostrich 220: Linux and Windows builds without ROMs, smoke test, zips with
-      the licence texts,
-      release on a `v*` tag.
+      the licence texts, release on a `v*` tag.
+- [x] Release 0.1.0 (2.11.2026): Windows and Linux zips, no ROMs. Released before the
+      CLAP was tried in a DAW, as Helge decided.
+
+Still to do after 0.1.0:
+
+- [ ] The CLAP in a DAW.
+- [ ] Old songs: play a few GS songs through it and compare with memory and recordings of
+      the unit, where there are any.
 
 ## Open
 

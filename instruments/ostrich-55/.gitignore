@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------------------
+# COPYRIGHTED MATERIAL -- never commit, never push.
+#
+# Roland's firmware, wave ROMs and manuals belong to Roland. This repository only says
+# WHERE a user must put their own dumps (roms/README.md); it never carries them.
+#
+# If you really need to add a binary that matches one of these patterns and is NOT
+# copyrighted (a test fixture you generated yourself), use `git add -f` and say why in
+# the commit message.
+# ---------------------------------------------------------------------------------------
+
+# Program and wave ROMs, in every naming scheme seen so far
+#   Nuked-SC55: sc55_rom1.bin, sc55_waverom1.bin, rom1.bin, rom_sm.bin
+#   MAME:       roland_r15199778_6435328a97f.ic30 and the like
+*.bin
+*.BIN
+*.rom
+*.ROM
+*.ic[0-9]*
+*.IC[0-9]*
+*.eprom
+*.hex
+
+# MAME ROM sets and archives of dumps
+*.zip
+*.7z
+*.chd
+
+# The roms/ folder holds only its README
+roms/*
+!roms/README.md
+
+# Recordings and renders of the factory sounds (derived from the ROMs)
+*.wav
+*.WAV
+*.flac
+*.aif
+*.aiff
+*.mp3
+*.ogg
+*.raw
+
+# SysEx dumps and MIDI files of other people's songs
+*.syx
+*.SYX
+*.mid
+*.MID
+
+# Roland manuals, service notes and datasheets
+reference/*.pdf
+
+# Photos of real hardware (copyright of whoever took them)
+*.jpg
+*.jpeg
+*.JPG
+
+# ---------------------------------------------------------------------------------------
+# Build products and tools
+# ---------------------------------------------------------------------------------------
+__pycache__/
+*.pyc
+.claude/
+.claude.json

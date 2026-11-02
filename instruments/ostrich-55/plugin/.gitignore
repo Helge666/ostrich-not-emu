@@ -1,0 +1,8 @@
+# Build products: the core (build-core/), and per plugin build/, bin/, build-win/, bin-win/.
+build/
+bin/
+build-win/
+bin-win/
+build-core/
+*.o
+*.d

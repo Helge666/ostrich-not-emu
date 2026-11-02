@@ -1,0 +1,7 @@
+[submodule "plugin/dpf"]
+	path = plugin/dpf
+	url = https://github.com/Helge666/DPF.git
+	branch = logan
+[submodule "nuked-sc55"]
+	path = nuked-sc55
+	url = https://github.com/Helge666/Nuked-SC55.git

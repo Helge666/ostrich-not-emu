@@ -1,0 +1,5 @@
+# Keep LF everywhere, also in Windows checkouts: the scripts run on Linux (kellerkind2).
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.ttf binary

@@ -1,0 +1,7 @@
+[submodule "munt"]
+	path = munt
+	url = https://github.com/Helge666/munt.git
+[submodule "plugin/dpf"]
+	path = plugin/dpf
+	url = https://github.com/Helge666/DPF.git
+	branch = logan

@@ -72,7 +72,7 @@ copy ROM images there without admin rights. The uninstaller leaves that folder a
 ## 5. DPF
 
 `plugin/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
-`logan`, pinned to a tag (`logan-1`). Nothing is patched at build time: `plugin/dpf` stays
+`logan`, pinned to a tag (`logan-2`). Nothing is patched at build time: `plugin/dpf` stays
 clean. What the fork is and how it changes: [DPF-LOGAN.md](DPF-LOGAN.md).
 
 ## 6. Checking it

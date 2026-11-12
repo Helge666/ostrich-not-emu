@@ -37,8 +37,10 @@ build host (`~/coding/ostrich32-roms`, recognised by libmt32emu on 12.11.2026).
 ## Later
 
 - [ ] The new MT-32 (control ROM v2.03, 2.04, 2.06, 2.07) and the CM-32L / CM-64 / LAPC-I
-      (v1.00, 1.02) and CM-32LN (v1.00): libmt32emu plays them already; needs dumps for
-      testing and, for the CM-32L, a panel of its own. No such dumps at hand yet.
+      (v1.00, 1.02) and CM-32LN (v1.00): libmt32emu plays them already. Dumps of all but
+      v2.03 are at hand since 12.11.2026 (`~/coding/ostrich32-roms/mame-versioned`; v2.04,
+      2.06, 2.07, CM-32L 1.00 and 1.02, CM-32LN 1.00 start and play). Open: the CM-32L has
+      no display or buttons; how its panel looks.
 - [ ] Settings libmt32emu offers: analogue output mode, reverb on/off and mode, DAC input
       mode, partial count, MIDI delay mode.
 - [ ] Windows installer, as planned for Ostrich 55.

@@ -16,24 +16,24 @@ Decided with the owner on 12.11.2026.
 - **As few extra functions as possible.** Only if they do not fit into the bar: a SETUP
   panel, opened from the bar.
 
-## What libmt32emu gives, and what we build
+## What 88emu gives, and what we draw
 
-libmt32emu emulates the synthesiser and the **display** as MIDI drives it (the main view
-with the parts and `|vol:`, the startup message, the program change view
-`1|Synth-1>Soundtrack`, SysEx display messages, the checksum error). It does **not** run
-the control ROM's front-panel code: the **buttons and the knob are not emulated**. Ostrich
-32 builds them on top:
+88emu runs the unit's own control ROM, front-panel code included (since 12.11.2026; the
+first core, Munt's libmt32emu, had no panel). So Ostrich 32 **imitates nothing**:
 
-- A button press selects a mode (part, sound group, sound, volume, master volume); the
-  knob changes the value of that mode.
-- The change goes to the synth as the unit would make it: a program change on the part
-  (libmt32emu then shows its own program change view), the part's volume, the master
-  volume (libmt32emu then shows `|vol:` in its main view).
-- What the display shows while a button mode is active and libmt32emu has no view for it
-  is drawn by Ostrich 32, after the unit's behaviour as the MT-32 owner's manual describes
-  it (the manual is consulted locally, never committed).
-- The display and the lamp otherwise come from libmt32emu, character for character; the
-  LCD's font is drawn by Ostrich 32 (a 5 x 8 dot matrix, yellow-green backlight).
+- A button on the panel is a switch held down for the firmware (`emu88_set_panel_buttons`,
+  one bit per switch, several at once possible). The firmware reads the panel at its own
+  pace; a click is held for at least a few milliseconds of rendering.
+- The knob turns the firmware's VOLUME/VALUE pot by 32nds of its travel
+  (`emu88_turn_panel_encoder`); a mouse drag or the wheel becomes steps. The firmware
+  treats it as an absolute pot, as on the unit.
+- The 20 characters and the MIDI MESSAGE lamp are what the firmware writes to the LCD
+  controller and the lamp, character for character (`emu88_get_display_text`,
+  `emu88_get_panel_leds` bit 0). Ostrich 32 draws them: the LCD's font as a 5 x 8 dot
+  matrix, yellow-green backlight.
+- Seen on v1.04 (12.11.2026): MASTER VOLUME, then the knob: `vol:100` to `vol: 87` and
+  `vol: 74`; SOUND shows `1|Bass   >Slap Bass1` and the knob steps through the sounds; on
+  MIDI the part's number blanks for a moment, as on the unit.
 
 ## The bar
 
@@ -43,8 +43,8 @@ looked for). From the right, as few as possible:
 | Control | Why the unit cannot do it |
 |---|---|
 | ROM images ... (CHOOSE FILE while images are missing) | the plugin needs the user's dumps |
-| the control ROM (v1.04 ... BlueRidge, of those present) | the unit has one chip; the plugin can have several |
+| the control ROM (v1.04 ... Blue Ridge, M-9, of those present) | the unit has one chip; the plugin can have several |
 | MIDI IN, BUFFER (Windows standalone only) | as in Ostrich 55 |
 
-Candidates only if needed, then possibly in SETUP: reset (all notes off / power-on),
-libmt32emu's options (analogue output, DAC input mode, reverb, MIDI delay).
+Candidates only if needed, then possibly in SETUP: reset (all notes off / power-on), the
+power-on intro the firmware shows (88emu skips it by default).

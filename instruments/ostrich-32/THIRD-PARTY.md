@@ -5,8 +5,15 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 
 | Component | Where | Licence | Copyright |
 |---|---|---|---|
-| libmt32emu (Munt) | `munt/mt32emu/` (submodule): the emulation of the MT-32, CM-32L and LAPC-I | LGPL-2.1-or-later (`munt/mt32emu/COPYING.LESSER.txt`) | Dean Beeler, Jerome Fisher, Sergey V. Mikayev; the authors and contributors in `munt/mt32emu/AUTHORS.txt` |
-| smallsha1 | inside libmt32emu, used to recognise the ROM images | BSD-3-Clause (`munt/mt32emu/AUTHORS.txt`) | Micael Hildenborg |
+| gearmulator, 88emu | `gearmulator/` (submodule): `source/ronaldo/88emu` (the MT-32 and CM-32L boards), `source/framework`, the CPU cores in `source/cpu` | GPL-3.0 (`gearmulator/LICENSE.md`) | The Usual Suspects ([dsp56300.com](https://dsp56300.com/)) |
+| Nuked-MT32 | inside 88emu: its LA32 emulation is derived from it | GPL-2.0-or-later | nukeykt |
+| HG61H20R36F emulator (Munt) | inside 88emu: its Boss reverb emulation is derived from it | LGPL-2.1-or-later | Sergey V. Mikayev |
+| dsp56300 | `gearmulator/source/cpu/dsp56300` (submodule of the submodule): its base library (threads, logging) | GPL-3.0 (`LICENSE.md` there) | The Usual Suspects |
+| AsmJit | `gearmulator/source/cpu/dsp56300/source/asmjit`: the JIT of the reverb emulation | zlib | The AsmJit Authors |
+| mc68k, Musashi | `gearmulator/source/cpu/mc68k`, linked into 88emu's bundle | GPL-3.0; Musashi MIT-style | The Usual Suspects; Karl Stenerud |
+| libresample | `gearmulator/source/3rdparty/libresample`: resampling to the host's rate | BSD-3-Clause or LGPL-2.1 (`LICENSE-BSD.txt`, `LICENSE-LGPL.txt` there) | Dominic Mazzoni |
+| MAME resamplers | `gearmulator/source/framework/synthLib/mameResamplers.cpp` | BSD-3-Clause | Olivier Galibert |
+| Intel ITT API | `gearmulator/source/cpu/dsp56300/source/vtuneSdk`: profiling hooks, inert in our builds | GPL-2.0-only or BSD-3-Clause | Intel Corporation |
 | DPF | `plugin/dpf/` (submodule) | ISC | Filipe Coelho |
 | pugl | `plugin/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
 | NanoVG | `plugin/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
@@ -21,16 +28,17 @@ arrives, with its origin.
 The release zips will carry these licence texts in their folder `licenses`, next to the
 GPL 3.0 (`LICENSE`).
 
-Ostrich 32 uses libmt32emu as it is, unmodified, built from the Munt source at a release
-tag. Of the Munt project only the library is used; mt32emu_qt, the drivers and the other
-programs are not part of Ostrich 32. The LGPL 2.1 allows libmt32emu to be combined into a
-GPL 3.0 program; its own notices stay as they are, and the complete source of every
-release, libmt32emu included, is public. libmt32emu is built with Munt's own CMake, as a
-static library with its built-in resampler. Our own files say which licence they are under
-in their first lines: the core around libmt32emu (`plugin/core/`) is LGPL-2.1-or-later
-like libmt32emu; the plugin and the tools are GPL-3.0-or-later. Combined, the binaries are
-under the GPL 3.0.
+Ostrich 32 builds 88emu with gearmulator's own CMake (target `88emu_bundle`: one static
+library of 88emu and everything it links) from our fork Helge666/gearmulator. Its branch
+`ostrich` is an upstream release tag plus only the commits a mingw-w64 build needs, each a
+plain commit in the fork (and in Helge666/dsp56300, which it points to); nothing is
+patched at build time. Of gearmulator only 88emu is built; its other emulations, its
+plugins, JUCE and the player are not part of Ostrich 32. gearmulator's CMake reads some
+further submodules while configuring (RmlUi, FreeType, LunaSVG, cpp-terminal, PortMidi);
+they are fetched for the build but not linked. For mingw-w64 the build adds two header
+shims of our own (`plugin/tools/mingw`). Our own files say which licence they are under in
+their first lines, GPL-3.0-or-later; combined, the binaries are under the GPL 3.0.
 
-No Roland control ROM, PCM ROM, SysEx data or manual is part of this project. "Roland",
-"MT-32", "CM-32L", "CM-64" and "LAPC-I" are trademarks of Roland Corporation; this project
-is not affiliated with Roland.
+No Roland control ROM, PCM ROM, reverb ROM, SysEx data or manual is part of this project.
+"Roland", "MT-32", "CM-32L" and "CM-32LN" are trademarks of Roland Corporation; this
+project is not affiliated with Roland.

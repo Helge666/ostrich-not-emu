@@ -7,40 +7,52 @@
       version in `plugin/ostrich/Version.hpp` (12.11.2026).
 - [x] Fork [Helge666/munt](https://github.com/Helge666/munt), its description naming Munt's
       authors and licences (12.11.2026).
+- [x] First core on libmt32emu (12.11.2026). It played all old MT-32 sets, but sounded
+      similar to the owner's recordings of their MT-32, not the same.
+- [x] Engine changed to **88emu** (gearmulator), which runs the original firmware, the LA32
+      after Nuked-MT32 and the reverb microcode (12.11.2026). Forks
+      [Helge666/gearmulator](https://github.com/Helge666/gearmulator) and
+      [Helge666/dsp56300](https://github.com/Helge666/dsp56300), branch `ostrich`, tag
+      `ostrich-1` (upstream 2.2.27 plus mingw-w64 fixes, BUILDING.md); `munt/` removed.
+- [x] Core on 88emu (12.11.2026): `plugin/core/mt32_core` (images identified with 88emu's
+      registry, the complete machines per firmware, each opened from its own temp folder;
+      MIDI with frame offsets; rendering at the host's rate; panel switches, knob, LCD and
+      MIDI MESSAGE lamp from the firmware), `mt32_render` with a panel test. Linux and
+      Windows (mingw) build and render the same, bit for bit; all six old MT-32 firmwares
+      start and play.
 
 ## Next
 
-First target: the **old MT-32** (control ROM v1.04, 1.05, 1.06, 1.07, BlueRidge; MT-32 PCM
-ROM). The owner's own unit was bought in 1987, so an early version; the panel and the
-defaults follow the old MT-32, the earliest set (v1.04) first. These sets are at hand on the
-build host (`~/coding/ostrich32-roms`, recognised by libmt32emu on 12.11.2026).
+First target: the **old MT-32** (control ROM v1.04, 1.05, 1.06, 1.07, Blue Ridge, M-9; PCM
+and reverb ROM of the old board). The owner's own unit was bought in 1987, so an early
+version; the panel and the defaults follow the old MT-32, the earliest set (v1.04) first.
+These sets are at hand on the build host (`~/coding/ostrich32-roms`).
 
-- [x] Core (12.11.2026): libmt32emu built with Munt's CMake as a static library (C++
-      interface, built-in resampler), `plugin/core/mt32_core` (ROM images by SHA-1, the
-      complete machines, MIDI with frame offsets, rendering at the host's rate, the LCD and
-      the MIDI MESSAGE lamp), `mt32_render`. Linux and Windows (mingw) build; all five old
-      MT-32 sets play, sound starts on the frame asked for.
+- [ ] Listening check on the owner's Windows machine: `mt32_render` WAVs (v1.04) against
+      the owner's recordings of their MT-32.
 - [ ] ROM setup in the plugin: the panel's CHOOSE FILE as in Ostrich 55, zips included.
-- [ ] Listening check: after a note-off of the test chord (v1.04, part 1's power-on sound) there is
-      a short burst of level; compare with mt32emu_qt and, if possible, a real unit.
 - [ ] Plugin: VST3, CLAP, standalone (Windows, Linux), MIDI in with sample-accurate timing,
-      SysEx in (CLAP, standalone; VST3 needs the DPF fork, as for Ostrich 55).
+      SysEx in (CLAP, standalone; VST3 needs the DPF fork, as for Ostrich 55). The core is
+      not thread-safe: panel actions and the display go through the audio thread.
 - [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the MT-32's display and
-      every button and the knob; the buttons' behaviour built on top of libmt32emu (it
-      emulates the display, not the front panel), after the owner's manual. Extra functions
-      in the bar under the panel, as few as possible; a SETUP panel only if they do not fit.
+      every button and the knob, all driving the firmware. Extra functions in the bar under
+      the panel, as few as possible; a SETUP panel only if they do not fit.
+- [ ] Real-time safety: `emu88_get_display_text` builds a `std::string`; read the display
+      once per block or less, or find an allocation-free way.
+- [ ] Startup: opening a machine takes about 0.7 s (firmware boot); keep it off the audio
+      thread.
 - [ ] `tools/ostrich_clap_render` and a smoke test without ROMs.
 - [ ] CI as for Ostrich 55 and 7765: Linux and Windows (mingw, cross-compiled), zips with
-      the licence texts, a `v*` tag publishes a release.
+      the licence texts, a `v*` tag publishes a release. 88emu's build needs about 660 MB of
+      shallow submodules; cache them.
 - [ ] GitHub repository `Helge666/ostrich32` (with the owner).
 
 ## Later
 
-- [ ] The new MT-32 (control ROM v2.03, 2.04, 2.06, 2.07) and the CM-32L / CM-64 / LAPC-I
-      (v1.00, 1.02) and CM-32LN (v1.00): libmt32emu plays them already. Dumps of all but
-      v2.03 are at hand since 12.11.2026 (`~/coding/ostrich32-roms/mame-versioned`; v2.04,
-      2.06, 2.07, CM-32L 1.00 and 1.02, CM-32LN 1.00 start and play). Open: the CM-32L has
-      no display or buttons; how its panel looks.
-- [ ] Settings libmt32emu offers: analogue output mode, reverb on/off and mode, DAC input
-      mode, partial count, MIDI delay mode.
+- [ ] The new MT-32 (control ROM v2.03, 2.04, 2.06, 2.07), the CM-32L / LAPC-I (v1.00,
+      1.02) and the CM-32LN (v1.00): 88emu runs them, but they need the reverb ROM
+      R15179917, which is not at hand. Dumps of all other images but v2.03 are
+      (`~/coding/ostrich32-roms/mame-versioned`). Open: the CM-32L has no display or
+      buttons; how its panel looks.
+- [ ] The M-9 firmware boots with master volume 0: check whether that is how it is.
 - [ ] Windows installer, as planned for Ostrich 55.

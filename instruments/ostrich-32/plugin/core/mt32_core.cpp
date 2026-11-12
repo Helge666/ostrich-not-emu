@@ -1,218 +1,301 @@
-// SPDX-License-Identifier: LGPL-2.1-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-// mt32_core -- see mt32_core.h.  Everything that makes the sound is libmt32emu's (Munt:
-// Dean Beeler, Jerome Fisher, Sergey V. Mikayev and contributors); this file only chooses
-// the ROM images, feeds MIDI in at the right time and resamples to the host's rate.
+// mt32_core -- see mt32_core.h.  88emu is used through its C interface for running a
+// machine and through its ROM registry (a header of size and digest per known image) for
+// telling the user's images apart; nothing of 88emu is changed.
 
 #include "mt32_core.h"
 
-#include <mt32emu.h>
+#include "88lib/c_interface.h"
+#include "88lib/rom/romRegistry.h"
 
 #include <algorithm>
-#include <cstdarg>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <mutex>
+#include <random>
+#include <set>
+
+namespace fs = std::filesystem;
+using namespace emu88Lib;
 
 namespace mt32 {
 
-using namespace MT32Emu;
-
 namespace {
 
-// libmt32emu talks on stdout by default; a plugin must not.
-struct QuietReportHandler : ReportHandler
-{
-	void printDebug(const char *, va_list) override {}
-	void showLCDMessage(const char *) override {}
+// The LA boards Ostrich 32 runs, in the order they are offered.
+struct Board { RomDevice rom; const char *id; const char *name; emu88_device_id device; };
+const Board kBoards[] = {
+	{ RomDevice::Mt32Old, "mt32old", "MT-32 1.x", EMU88_DEVICE_MT32_OLD },
+	{ RomDevice::Mt32New, "mt32new", "MT-32 2.x", EMU88_DEVICE_MT32_NEW },
+	{ RomDevice::Cm32l,   "cm32l",   "CM-32L",    EMU88_DEVICE_CM32L },
+	{ RomDevice::Cm32ln,  "cm32ln",  "CM-32LN",   EMU88_DEVICE_CM32LN },
 };
 
-const MachineConfiguration *findConfiguration(const std::string &id)
+const char *slotName(RomSlot s)
 {
-	Bit32u n = 0;
-	const MachineConfiguration * const *all = MachineConfiguration::getAllMachineConfigurations(&n);
-	for (Bit32u i = 0; i < n; i ++)
-		if (id == all[i]->getMachineID())
-			return all[i];
-	return nullptr;
-}
-
-/// The images of one machine, as libmt32emu's File objects over the caller's data.
-struct Choice
-{
-	ArrayFile *full = nullptr;            // a whole ROM
-	ArrayFile *half[2] = {};              // or its two halves / interleaved chips
-	bool complete() const { return full || (half[0] && half[1]); }
-};
-
-/// Picks, for one machine, the control and the PCM ROM from `files`; whole images first.
-void choose(const MachineConfiguration &cfg, const std::vector<std::unique_ptr<ArrayFile>> &files,
-            Choice &control, Choice &pcm)
-{
-	const ROMInfo * const *compatible = cfg.getCompatibleROMInfos();
-	std::vector<std::pair<ArrayFile *, const ROMInfo *>> known;
-	for (const auto &f : files)
-		if (const ROMInfo *ri = ROMInfo::getROMInfo(f.get(), compatible))
-			known.emplace_back(f.get(), ri);
-
-	for (Choice *c : { &control, &pcm })
+	switch (s)
 	{
-		const ROMInfo::Type type = c == &control ? ROMInfo::Control : ROMInfo::PCM;
-		for (const auto &[f, ri] : known)
-			if (ri->type == type && ri->pairType == ROMInfo::Full && !c->full)
-				c->full = f;
-		if (c->full)
-			continue;
-		// A half whose partner is present too.  pairROMInfo links the two halves.
-		for (const auto &[f, ri] : known)
-		{
-			if (ri->type != type || ri->pairType == ROMInfo::Full || !ri->pairROMInfo)
-				continue;
-			for (const auto &[g, rj] : known)
-				if (rj == ri->pairROMInfo)
-				{
-					c->half[0] = f;
-					c->half[1] = g;
-					break;
-				}
-			if (c->half[0])
-				break;
-		}
+	case RomSlot::Control: return "control";
+	case RomSlot::Wave:    return "wave";
+	case RomSlot::Reverb:  return "reverb";
+	default:               return nullptr;
 	}
 }
 
-std::vector<std::unique_ptr<ArrayFile>> wrap(const std::vector<std::vector<uint8_t>> &images)
+// The registry rows an image matches (one image can fill several rows: the PCM mask ROM
+// R15449121 is the MT-32's whole wave ROM and the first chip of the CM-32L's).
+std::vector<const RomRegistryEntry *> matches(const uint8_t *data, size_t size)
 {
-	std::vector<std::unique_ptr<ArrayFile>> files;
-	for (const auto &img : images)
-		if (!img.empty())
-			files.push_back(std::make_unique<ArrayFile>(img.data(), size_t(img.size())));
-	return files;
+	std::vector<const RomRegistryEntry *> out;
+	bool any = false;
+	for (const auto &e : g_romRegistry)
+		if (e.size == size) { any = true; break; }
+	if (!any)
+		return out;
+	const baseLib::MD5 md5(data, uint32_t(size));
+	const baseLib::SHA1 sha1(data, size);
+	const baseLib::SHA256 sha256(data, size);
+	for (const auto &e : g_romRegistry)
+	{
+		if (e.size != size || !slotName(e.slot))
+			continue;
+		bool la = false;
+		for (const Board &b : kBoards)
+			la |= usedBy(e, b.rom);
+		if (!la)
+			continue;
+		if ((e.hash.isValid() && e.hash == md5) || (e.sha1.isValid() && e.sha1 == sha1)
+		    || (e.sha256.isValid() && e.sha256 == sha256))
+			out.push_back(&e);
+	}
+	return out;
 }
 
-const ROMImage *makeImage(const Choice &c, const ROMInfo * const *compatible)
+// "1.04, 14 July 87" -> "1.04"; "1.04 A, IC27" -> "1.04"; "Blue Ridge B" -> "Blue Ridge".
+std::string firmwareName(const RomRegistryEntry &e)
 {
-	if (c.full)
-		return ROMImage::makeROMImage(c.full, compatible);
-	return ROMImage::makeROMImage(c.half[0], c.half[1]);
+	std::string v = e.version;
+	v = v.substr(0, v.find(','));
+	if (e.index != 0 && v.size() > 2 && v[v.size() - 2] == ' ' && (v.back() == 'A' || v.back() == 'B'))
+		v.resize(v.size() - 2);
+	return v;
 }
+
+// What the images offer one board: per slot, the images for the whole (index 0) and for
+// each chip (index 1, 2); control ROMs further by firmware.
+struct Offer
+{
+	std::map<std::string, std::map<int, size_t>> control;   // firmware -> index -> image
+	std::map<int, size_t> wave;                              // index -> image
+	std::map<int, size_t> reverb;
+};
+
+Offer offerFor(const Board &b, const std::vector<std::vector<uint8_t>> &images)
+{
+	Offer o;
+	for (size_t i = 0; i < images.size(); i ++)
+		for (const RomRegistryEntry *e : matches(images[i].data(), images[i].size()))
+		{
+			if (!usedBy(*e, b.rom))
+				continue;
+			if (e->slot == RomSlot::Control)
+				o.control[firmwareName(*e)].emplace(e->index, i);
+			else if (e->slot == RomSlot::Wave)
+				o.wave.emplace(e->index, i);
+			else if (e->slot == RomSlot::Reverb)
+				o.reverb.emplace(e->index, i);
+		}
+	return o;
+}
+
+// The images that make a slot complete: the whole, else both chips; empty if neither.
+std::vector<size_t> complete(const std::map<int, size_t> &slot)
+{
+	if (auto it = slot.find(0); it != slot.end())
+		return { it->second };
+	if (slot.count(1) && slot.count(2))
+		return { slot.at(1), slot.at(2) };
+	return {};
+}
+
+// 88emu's ROM search path is process-wide: one machine opens at a time.
+std::mutex g_openMutex;
 
 } // namespace
 
 bool identifyRom(const uint8_t *data, size_t size, RomId &out)
 {
-	ArrayFile f(data, size);
-	const ROMInfo *ri = ROMInfo::getROMInfo(&f);
-	if (!ri)
+	const auto found = matches(data, size);
+	if (found.empty())
 		return false;
-	out.name = ri->shortName;
-	out.description = ri->description;
-	out.control = ri->type == ROMInfo::Control;
-	out.partial = ri->pairType != ROMInfo::Full;
-	ROMInfo::freeROMInfo(ri);
+	const RomRegistryEntry &e = *found.front();
+	out = RomId();
+	out.slot = slotName(e.slot);
+	out.version = e.version;
+	out.chip = e.index != 0;
+	for (const Board &b : kBoards)
+		for (const RomRegistryEntry *f : found)
+			if (usedBy(*f, b.rom))
+			{
+				out.devices += (out.devices.empty() ? "" : ", ") + std::string(b.name);
+				break;
+			}
 	return true;
 }
 
 std::vector<Machine> findMachines(const std::vector<std::vector<uint8_t>> &images)
 {
 	std::vector<Machine> out;
-	const auto files = wrap(images);
-	Bit32u n = 0;
-	const MachineConfiguration * const *all = MachineConfiguration::getAllMachineConfigurations(&n);
-	for (Bit32u i = 0; i < n; i ++)
+	for (const Board &b : kBoards)
 	{
-		Choice control, pcm;
-		choose(*all[i], files, control, pcm);
-		if (!control.complete() || !pcm.complete())
+		const Offer o = offerFor(b, images);
+		if (complete(o.wave).empty() || complete(o.reverb).empty())
 			continue;
-		const ROMInfo *ri = ROMInfo::getROMInfo(control.full ? control.full : control.half[0]);
-		out.push_back({ all[i]->getMachineID(), ri ? ri->description : all[i]->getMachineID() });
-		if (ri)
-			ROMInfo::freeROMInfo(ri);
+		for (const auto &[firmware, chips] : o.control)      // std::map: sorted by name
+			if (!complete(chips).empty())
+				out.push_back({ std::string(b.id) + "/" + firmware,
+				                std::string(b.name) + ", control ROM " + firmware });
 	}
 	return out;
 }
 
 const char *libraryVersion()
 {
-	return Synth::getLibraryVersionString();
+	return emu88_get_library_version_string();
 }
 
 // ---------------------------------------------------------------------------------------
 
 struct Core::Impl
 {
-	static constexpr uint32_t kChunk = 256;   // frames per call into the resampler
+	emu88_context ctx = nullptr;
 
-	std::vector<std::vector<uint8_t>> images;          // the data the files point at
-	std::vector<std::unique_ptr<ArrayFile>> files;
-	const ROMImage *control = nullptr;
-	const ROMImage *pcm = nullptr;
-	QuietReportHandler report;
-	std::unique_ptr<Synth> synth;
-	std::unique_ptr<SampleRateConverter> src;
-	float buffer[2 * kChunk];
+	static constexpr uint32_t kChunk = 256;
+	float buffer[kChunk * 2];
+
+	struct Event { uint32_t offset; uint32_t msg; uint32_t sysexAt, sysexLen; };
+	std::vector<Event> events;           // sorted by offset, capacity reserved
+	std::vector<uint8_t> sysex;          // the queued SysEx bytes, capacity reserved
+	size_t sysexUsed = 0;
+
+	Impl()
+	{
+		events.reserve(2048);
+		sysex.resize(65536);
+	}
 
 	~Impl() { close(); }
 
 	void close()
 	{
-		src.reset();
-		synth.reset();                      // before the images: the synth uses them
-		if (control) ROMImage::freeROMImage(control);
-		if (pcm) ROMImage::freeROMImage(pcm);
-		control = pcm = nullptr;
-		files.clear();
-		images.clear();
+		if (ctx)
+			emu88_free_context(ctx);
+		ctx = nullptr;
+		events.clear();
+		sysexUsed = 0;
+	}
+
+	void renderChunk(float *l, float *r, uint32_t frames)
+	{
+		while (frames)
+		{
+			const uint32_t n = std::min(frames, kChunk);
+			emu88_render_float(ctx, buffer, n);
+			for (uint32_t i = 0; i < n; i ++)
+			{
+				l[i] = buffer[i * 2];
+				r[i] = buffer[i * 2 + 1];
+			}
+			l += n; r += n; frames -= n;
+		}
+	}
+
+	void play(const Event &e)
+	{
+		if (e.sysexLen)
+			emu88_play_sysex(ctx, sysex.data() + e.sysexAt, e.sysexLen);
+		else
+			emu88_play_msg(ctx, e.msg);
 	}
 };
 
-Core::Core() : m(std::make_unique<Impl>()) {}
+Core::Core() : m(new Impl) {}
+
 Core::~Core() = default;
 
-bool Core::start(const std::string &machine, std::vector<std::vector<uint8_t>> images,
+bool Core::start(const std::string &machine, const std::vector<std::vector<uint8_t>> &images,
                  double sampleRate, std::string &error)
 {
 	stop();
-	const MachineConfiguration *cfg = findConfiguration(machine);
-	if (!cfg)
+	const size_t slash = machine.find('/');
+	const Board *board = nullptr;
+	for (const Board &b : kBoards)
+		if (machine.compare(0, slash, b.id) == 0)
+			board = &b;
+	if (!board || slash == std::string::npos)
 	{
-		error = "unknown machine " + machine;
+		error = "unknown machine \"" + machine + "\"";
 		return false;
 	}
-	m->images = std::move(images);
-	m->files = wrap(m->images);
-	Choice control, pcm;
-	choose(*cfg, m->files, control, pcm);
-	if (!control.complete() || !pcm.complete())
+	const Offer o = offerFor(*board, images);
+	const auto control = o.control.find(machine.substr(slash + 1));
+	const std::vector<size_t> wave = complete(o.wave), reverb = complete(o.reverb);
+	if (control == o.control.end() || complete(control->second).empty() || wave.empty() || reverb.empty())
 	{
-		error = std::string(!control.complete() ? "control ROM" : "PCM ROM") + " missing for " + machine;
-		m->close();
-		return false;
-	}
-	const ROMInfo * const *compatible = cfg->getCompatibleROMInfos();
-	m->control = makeImage(control, compatible);
-	m->pcm = makeImage(pcm, compatible);
-	if (!m->control || !m->pcm)
-	{
-		error = "libmt32emu did not accept the ROM images for " + machine;
-		m->close();
+		error = "the images do not make " + machine + " complete";
 		return false;
 	}
 
-	m->synth = std::make_unique<Synth>(&m->report);
-	const AnalogOutputMode analog = SampleRateConverter::getBestAnalogOutputMode(sampleRate);
-	if (!m->synth->open(*m->control, *m->pcm, analog))
+	// A private folder with exactly this machine's images: 88emu finds ROMs by searching
+	// folders and would otherwise pick the firmware it likes best.
+	std::error_code ec;
+	std::random_device rd;
+	const fs::path dir = fs::temp_directory_path(ec) / ("ostrich32-" + std::to_string(rd()) + std::to_string(rd()));
+	fs::create_directories(dir, ec);
+	if (ec)
 	{
-		error = "libmt32emu could not open " + machine;
-		m->close();
+		error = "cannot create a folder in the temp folder: " + ec.message();
 		return false;
 	}
-	// SysEx in one preallocated buffer: safe on the audio thread.
-	m->synth->configureMIDIEventQueueSysexStorage(32768);
-	m->src = std::make_unique<SampleRateConverter>(*m->synth, sampleRate,
-	                                               SamplerateConversionQuality_GOOD);
+	int n = 0;
+	auto put = [&](size_t i) {
+		std::ofstream f(dir / ("rom" + std::to_string(n ++) + ".bin"), std::ios::binary);
+		f.write(reinterpret_cast<const char *>(images[i].data()), std::streamsize(images[i].size()));
+		return bool(f);
+	};
+	bool written = true;
+	for (size_t i : complete(control->second)) written &= put(i);
+	for (size_t i : wave) written &= put(i);
+	for (size_t i : reverb) written &= put(i);
+
+	int rc = EMU88_RC_FAILED;
+	if (written)
+	{
+		std::lock_guard<std::mutex> lock(g_openMutex);
+		emu88_set_rom_path(dir.string().c_str());
+		m->ctx = emu88_create_context();
+		emu88_select_device(m->ctx, board->device);
+		emu88_set_stereo_output_samplerate(m->ctx, sampleRate);
+		rc = emu88_open_synth(m->ctx);
+	}
+	fs::remove_all(dir, ec);
+	if (!written)
+	{
+		error = "cannot write the images to " + dir.string();
+		return false;
+	}
+	if (rc != EMU88_RC_OK)
+	{
+		m->close();
+		error = "88emu could not open " + machine + " (code " + std::to_string(rc) + ")";
+		return false;
+	}
+	m_running = true;
 	m_machine = machine;
 	m_rate = sampleRate;
-	m_running = true;
 	return true;
 }
 
@@ -221,65 +304,92 @@ void Core::stop()
 	m->close();
 	m_running = false;
 	m_machine.clear();
+	m_rate = 0;
 }
 
 void Core::midi(const uint8_t *data, size_t size, uint32_t offset)
 {
-	if (!m_running || size == 0)
+	if (!m_running || !size || m->events.size() == m->events.capacity())
 		return;
-	const Bit32u when = m->synth->getInternalRenderedSampleCount()
-	                  + Bit32u(m->src->convertOutputToSynthTimestamp(offset));
+	Impl::Event e { offset, 0, 0, 0 };
 	if (data[0] == 0xF0)
 	{
-		m->synth->playSysex(data, Bit32u(size), when);
-		return;
+		if (m->sysexUsed + size > m->sysex.size())
+			return;
+		std::memcpy(m->sysex.data() + m->sysexUsed, data, size);
+		e.sysexAt = uint32_t(m->sysexUsed);
+		e.sysexLen = uint32_t(size);
+		m->sysexUsed += size;
 	}
-	if (data[0] < 0x80 || data[0] >= 0xF8)
-		return;
-	Bit32u msg = data[0];
-	if (size > 1) msg |= Bit32u(data[1]) << 8;
-	if (size > 2) msg |= Bit32u(data[2]) << 16;
-	m->synth->playMsg(msg, when);
+	else
+	{
+		for (size_t i = 0; i < std::min<size_t>(size, 3); i ++)
+			e.msg |= uint32_t(data[i]) << (8 * i);
+	}
+	// keep the queue sorted, events with the same offset in arrival order
+	auto it = std::upper_bound(m->events.begin(), m->events.end(), offset,
+	                           [](uint32_t o, const Impl::Event &x) { return o < x.offset; });
+	m->events.insert(it, e);
 }
 
 void Core::render(float *left, float *right, uint32_t frames)
 {
 	if (!m_running)
 	{
-		std::fill(left, left + frames, 0.f);
-		std::fill(right, right + frames, 0.f);
+		std::fill_n(left, frames, 0.f);
+		std::fill_n(right, frames, 0.f);
 		return;
 	}
-	while (frames > 0)
+	// 88emu takes a message with the next frame it renders: render up to each event's
+	// offset, then hand it over.
+	uint32_t pos = 0;
+	for (const Impl::Event &e : m->events)
 	{
-		const uint32_t n = std::min(frames, Impl::kChunk);
-		m->src->getOutputSamples(m->buffer, n);
-		for (uint32_t i = 0; i < n; i ++)
+		const uint32_t at = std::min(e.offset, frames);
+		if (at > pos)
 		{
-			*left ++ = m->buffer[2 * i];
-			*right ++ = m->buffer[2 * i + 1];
+			m->renderChunk(left + pos, right + pos, at - pos);
+			pos = at;
 		}
-		frames -= n;
+		m->play(e);
 	}
+	m->events.clear();
+	m->sysexUsed = 0;
+	if (frames > pos)
+		m->renderChunk(left + pos, right + pos, frames - pos);
+}
+
+void Core::panelButtons(uint32_t buttons)
+{
+	if (m_running)
+		emu88_set_panel_buttons(m->ctx, buttons);
+}
+
+void Core::panelKnob(int steps)
+{
+	if (m_running && steps)
+		emu88_turn_panel_encoder(m->ctx, steps);
 }
 
 bool Core::display(char text[21], bool &midiLamp) const
 {
+	std::memset(text, ' ', 20);
+	text[20] = 0;
+	midiLamp = false;
 	if (!m_running)
 		return false;
-	midiLamp = m->synth->getDisplayState(text);
+	char buf[64];
+	emu88_get_display_text(m->ctx, 0, buf, sizeof buf);
+	for (int i = 0; i < 20 && buf[i] && buf[i] != '\n'; i ++)
+		text[i] = buf[i];
+	midiLamp = (emu88_get_panel_leds(m->ctx) & 1) != 0;
 	return true;
 }
 
-void Core::mainDisplay()
+void Core::silence()
 {
 	if (m_running)
-		m->synth->setMainDisplayMode();
-}
-
-uint32_t Core::partStates() const
-{
-	return m_running ? m->synth->getPartStates() : 0;
+		emu88_play_silence(m->ctx);
 }
 
 } // namespace mt32

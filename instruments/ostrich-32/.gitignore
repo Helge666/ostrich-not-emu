@@ -76,6 +76,7 @@ reference/*
 plugin/bin/
 plugin/build/
 plugin/build-core/
+plugin/build-core-*/
 plugin/ostrich/bin-win/
 plugin/ostrich/build-win/
 plugin/tools/ostrich_clap_render

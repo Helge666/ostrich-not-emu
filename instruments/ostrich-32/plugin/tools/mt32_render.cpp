@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// mt32_render -- the core without a host: says which images in a folder libmt32emu
-// recognises and which machines they make complete, starts one, plays a MIDI file or a
-// test chord and writes a WAV.  Prints the display as it changes.  For tests on the build
-// host and in CI.
+// mt32_render -- the core without a host: says which images in a folder 88emu recognises
+// and which machines they make complete, starts one, plays a MIDI file or a test chord and
+// writes a WAV.  Prints the display as it changes.  For tests on the build host and in CI.
 //
 //   mt32_render <rom folder> <out.wav> [seconds] [file.mid] [machine] [rate]
 //
-// A MIDI file starts after 0.5 s.  Without one: a chord on part 1 (MIDI channel 2, as the
-// MT-32 is set up from power-on), then a snare on the rhythm part (channel 10).
+// machine: an id as listed, e.g. mt32old/1.04 (default: the first one listed); "" as
+// file.mid keeps the test sequence.  A MIDI file starts after 0.5 s.  Without one: a
+// chord on part 1 (MIDI channel 2, as the MT-32 is set up from power-on), a snare on the
+// rhythm part (channel 10), then the panel: MASTER VOLUME and the knob turned down twice,
+// then SOUND and the knob turned up a little.
 
 #include "mt32_core.h"
 
@@ -49,7 +51,8 @@ static void writeWav(const char *path, const std::vector<float> &l, const std::v
 }
 
 /// A type-0 or type-1 MIDI file, flattened to (seconds, bytes), tempo map applied.
-struct Event { double t; std::vector<uint8_t> bytes; };
+/// Without bytes: a panel action, the switches held (buttons >= 0) or a knob turn.
+struct Event { double t; std::vector<uint8_t> bytes; int buttons = -1; int knob = 0; };
 
 static std::vector<Event> readMidi(const fs::path &p)
 {
@@ -136,12 +139,12 @@ int main(int argc, char **argv)
 		std::fprintf(stderr, "usage: %s <rom folder> <out.wav> [seconds] [file.mid] [machine] [rate]\n", argv[0]);
 		return 2;
 	}
-	const double seconds = argc > 3 ? std::atof(argv[3]) : 4.0;
+	const double seconds = argc > 3 ? std::atof(argv[3]) : 6.5;
 	const std::string midiFile = argc > 4 ? argv[4] : "";
 	const std::string wanted = argc > 5 ? argv[5] : "";
 	const unsigned rate = argc > 6 ? unsigned(std::atoi(argv[6])) : 48000;
 
-	std::printf("libmt32emu %s\n", mt32::libraryVersion());
+	std::printf("88emu %s\n", mt32::libraryVersion());
 	std::vector<std::vector<uint8_t>> images;
 	std::vector<fs::path> paths;
 	std::error_code ec;
@@ -158,16 +161,17 @@ int main(int argc, char **argv)
 		mt32::RomId id;
 		if (mt32::identifyRom(d.data(), d.size(), id))
 		{
-			std::printf("  %-28s %-20s %s\n", p.filename().string().c_str(), id.name.c_str(), id.description.c_str());
+			std::printf("  %-28s %-7s %-30s %s\n", p.filename().string().c_str(), id.slot.c_str(),
+			            id.version.c_str(), id.devices.c_str());
 			images.push_back(std::move(d));
 		}
 		else
-			std::printf("  %-28s (not known to libmt32emu)\n", p.filename().string().c_str());
+			std::printf("  %-28s (not known to 88emu)\n", p.filename().string().c_str());
 	}
 	const std::vector<mt32::Machine> machines = mt32::findMachines(images);
 	std::printf("complete machines:");
 	for (const auto &m : machines)
-		std::printf(" %s", m.id.c_str());
+		std::printf("\n  %-16s %s", m.id.c_str(), m.description.c_str());
 	std::printf("\n");
 	if (machines.empty())
 	{
@@ -205,6 +209,13 @@ int main(int argc, char **argv)
 		}
 		events.push_back({ 2.5, { 0x99, 38, 120 } });
 		events.push_back({ 2.7, { 0x89, 38, 0 } });
+		events.push_back({ 3.0, {}, int(mt32::ButtonMasterVolume) });
+		events.push_back({ 3.2, {}, 0 });
+		events.push_back({ 3.5, {}, -1, -4 });
+		events.push_back({ 4.0, {}, -1, -4 });
+		events.push_back({ 5.0, {}, int(mt32::ButtonSound) });
+		events.push_back({ 5.2, {}, 0 });
+		events.push_back({ 5.5, {}, -1, 1 });
 	}
 
 	const uint32_t total = uint32_t(seconds * rate), block = 64;
@@ -218,7 +229,13 @@ int main(int argc, char **argv)
 		{
 			const double at = events[next].t * rate;
 			const uint32_t offset = at > pos ? uint32_t(at - pos) : 0;
-			core.midi(events[next].bytes.data(), events[next].bytes.size(), offset);
+			const Event &e = events[next];
+			if (!e.bytes.empty())
+				core.midi(e.bytes.data(), e.bytes.size(), offset);
+			else if (e.knob)
+				core.panelKnob(e.knob);
+			else
+				core.panelButtons(uint32_t(e.buttons));
 			next ++;
 		}
 		core.render(&L[pos], &R[pos], n);

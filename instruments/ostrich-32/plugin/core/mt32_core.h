@@ -1,9 +1,11 @@
-// SPDX-License-Identifier: LGPL-2.1-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-// mt32_core -- Ostrich 32's narrow wrapper around Munt's libmt32emu (munt/mt32emu, used
-// unmodified): finds the ROM sets among the user's images, runs the synth at the host's
-// rate and reports its display.  Under the LGPL 2.1 or later like libmt32emu itself.
-// The plugin includes only this header, never libmt32emu's.
+// mt32_core -- Ostrich 32's narrow wrapper around 88emu (gearmulator/source/ronaldo/88emu,
+// by the gearmulator authors; LA32 from Nuked-MT32 by nukeykt, reverb after Sergey V.
+// Mikayev).  88emu runs the unit's own firmware, so the display, the buttons and the knob
+// behave as the firmware makes them.  This wrapper finds the machines among the user's
+// images, runs one at the host's rate with MIDI at frame offsets, and passes the panel
+// through.  The plugin includes only this header, never 88emu's.
 
 #ifndef MT32_CORE_H
 #define MT32_CORE_H
@@ -16,32 +18,45 @@
 
 namespace mt32 {
 
-/// One image as libmt32emu recognises it by size and SHA-1.
+/// One image as 88emu's ROM registry knows it (by size and MD5 or SHA-1, never by name).
 struct RomId
 {
-	std::string name;          ///< libmt32emu's short name, e.g. "ctrl_mt32_1_07_a"
-	std::string description;   ///< e.g. "MT-32 Control v1.07"
-	bool control = false;      ///< control ROM; otherwise PCM ROM
-	bool partial = false;      ///< one half (or one interleaved chip) of a ROM
+	std::string devices;       ///< the boards that take it, e.g. "MT-32 1.x, MT-32 2.x"
+	std::string slot;          ///< "control", "wave" or "reverb"
+	std::string version;       ///< the registry's text, e.g. "1.04 A, IC27", "R15179857"
+	bool chip = false;         ///< one of two chips that together make the image
 };
 
-/// Identifies an image; false if libmt32emu does not know it.  Stateless, thread-safe.
+/// Identifies an image; false if 88emu does not know it or it is not for an LA board.
+/// Stateless, thread-safe.
 bool identifyRom(const uint8_t *data, size_t size, RomId &out);
 
-/// A machine libmt32emu can run from the given images: control and PCM ROM both present
-/// (whole, or as the two halves).
+/// A machine the images make complete: control ROM (whole, or both chips), wave ROM
+/// (whole, or both chips) and the reverb microcode of that board.
 struct Machine
 {
-	std::string id;            ///< libmt32emu's machine ID, e.g. "mt32_1_07", "cm32l_1_02"
-	std::string description;   ///< the control ROM's description, e.g. "MT-32 Control v1.07"
+	std::string id;            ///< e.g. "mt32old/1.04", "mt32new/2.04", "cm32l/1.02"
+	std::string description;   ///< e.g. "MT-32 1.x, control ROM 1.04"
 };
 
-/// The machines the images make complete, in libmt32emu's order (old MT-32 first).
+/// The machines the images make complete: old MT-32 first, then new MT-32, CM-32L,
+/// CM-32LN; within a board by firmware name (so 1.04 before 1.07).
 std::vector<Machine> findMachines(const std::vector<std::vector<uint8_t>> &images);
 
-/// libmt32emu's version, e.g. "2.8.6".
+/// 88emu's version, e.g. "2.2.27".
 const char *libraryVersion();
 
+/// The MT-32's switches, for Core::panelButtons() (88emu's numbering).
+enum Button : uint32_t
+{
+	ButtonPart1 = 1u << 0, ButtonPart2 = 1u << 1, ButtonPart3 = 1u << 2,
+	ButtonSoundGroup = 1u << 3, ButtonVolume = 1u << 4,
+	ButtonPart4 = 1u << 8, ButtonPart5 = 1u << 9, ButtonRhythm = 1u << 10,
+	ButtonSound = 1u << 11, ButtonMasterVolume = 1u << 12,
+};
+
+/// One running machine.  Not thread-safe: call everything from one thread (the plugin's
+/// audio thread) or guard it.
 class Core
 {
 public:
@@ -50,10 +65,11 @@ public:
 	Core(const Core &) = delete;
 	Core &operator=(const Core &) = delete;
 
-	/// Opens `machine` from `images` (any order; unknown ones are ignored) and renders at
-	/// `sampleRate` from then on.  Starts from power-on.  On failure returns false and
-	/// says why in `error`.
-	bool start(const std::string &machine, std::vector<std::vector<uint8_t>> images,
+	/// Starts `machine` (an id from findMachines) from `images` (any order; others are
+	/// ignored) and renders at `sampleRate` from then on, from power-on.  Writes the images
+	/// it needs into a private folder under the system's temp folder while it opens and
+	/// removes it again.  On failure returns false and says why in `error`.
+	bool start(const std::string &machine, const std::vector<std::vector<uint8_t>> &images,
 	           double sampleRate, std::string &error);
 	void stop();
 
@@ -62,21 +78,26 @@ public:
 	double sampleRate() const { return m_rate; }
 
 	/// A complete MIDI message (short message or SysEx F0 ... F7), to be heard `offset`
-	/// frames into the next render() call.  Not for System Realtime.
+	/// frames into the next render() call.  Not for System Realtime.  Real-time safe; a
+	/// message that does not fit the queue is dropped.
 	void midi(const uint8_t *data, size_t size, uint32_t offset = 0);
 
 	/// Renders `frames` frames at sampleRate(); full scale = 1.0.  Real-time safe.
 	void render(float *left, float *right, uint32_t frames);
 
-	/// The 20 characters of the LCD as the unit shows them (plus a terminating 0), and the
-	/// MIDI MESSAGE lamp.  False while not running.
+	/// The switches held down (Button bits, 0 = all released).  The firmware reads the panel
+	/// at its own pace: hold a press for a few milliseconds of rendering.
+	void panelButtons(uint32_t buttons);
+
+	/// Turns the knob by 32nds of its travel, negative = anticlockwise.
+	void panelKnob(int steps);
+
+	/// The 20 characters of the LCD as the firmware left them (plus a terminating 0), and
+	/// the MIDI MESSAGE lamp.  False while not running.
 	bool display(char text[21], bool &midiLamp) const;
 
-	/// Back to the main display after a message (what a front-panel button does first).
-	void mainDisplay();
-
-	/// Which of the 9 parts (8 melodic, then rhythm) are sounding: bit n set = part n+1.
-	uint32_t partStates() const;
+	/// What a host's stop does: hold pedal up and All Notes Off on every channel.
+	void silence();
 
 private:
 	struct Impl;

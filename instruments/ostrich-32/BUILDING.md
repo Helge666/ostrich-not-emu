@@ -1,10 +1,12 @@
 # Building Ostrich 32
 
-So far the core and its test tool build; the plugin follows (ROADMAP.md). This file grows
-with it, after Ostrich 55's BUILDING.md.
+The core, its test tool and the plugin (VST3, CLAP, standalone) build on Linux, natively
+and cross-compiled for Windows. After Ostrich 55's BUILDING.md.
 
-Needs: a C++17 compiler (GCC 13 tested), CMake 3.15 or newer, git; for Windows binaries
-mingw-w64 (win32 thread model), cross-compiled on Linux as for the other Ostriches.
+Needs: a C++20 compiler (GCC 13 tested), CMake 3.15 or newer, git, make; for the plugin
+on Linux the X11, OpenGL and JACK development headers DPF needs (as for Ostrich 55); for
+Windows binaries mingw-w64 (win32 thread model), cross-compiled on Linux as for the other
+Ostriches.
 
 ## 1. Cloning
 
@@ -87,7 +89,38 @@ Arguments: ROM folder, WAV, seconds, MIDI file (`""` for the test sequence), mac
 it says so and exits with 1. The Linux and the Windows build render the same WAV, bit for
 bit.
 
-## 4. Before publishing
+## 4. The plugin
+
+`plugin/ostrich` is the plugin on DPF, built like Ostrich 55's. `make` there builds the
+core first (section 3), then the VST3, the CLAP and the standalone (JACK) into
+`plugin/bin/`; `make win` does the same with mingw-w64 into `plugin/ostrich/bin-win/`
+(`Ostrich32.vst3`, `Ostrich32.clap`, `Ostrich32.exe`), with the core in
+`plugin/ostrich/build-win/core` (`WIN_CORE=...` names another folder).
+
+```bash
+cd plugin/ostrich
+nice -n 19 make -j5
+nice -n 19 make -j5 win
+```
+
+The plugin looks for ROM images in `$OSTRICH32_ROMS`, then `C:\ProgramData\Ostrich 32\roms`
+(Windows) or `~/.local/share/Ostrich 32/roms` (Linux) and the other folders its status
+line lists; the panel's CHOOSE FILE copies them there. It starts the control ROM the
+session names, else v1.04, else the first complete one.
+
+`plugin/tools/ostrich_clap_render.c` loads the CLAP without a host or a display, plays a
+note, presses panel switches, saves and prints the state and writes the output to a WAV:
+
+```bash
+gcc -std=gnu11 -O2 -o plugin/tools/ostrich_clap_render plugin/tools/ostrich_clap_render.c \
+    -Iplugin/dpf/distrho/src -ldl
+OSTRICH32_ROMS=~/coding/ostrich32-roms plugin/tools/ostrich_clap_render plugin/bin/Ostrich32.clap /tmp/out.wav
+```
+
+Its arguments are described at the top of the source. Without ROMs the plugin stays silent
+and says so in its status; that is the test CI can run.
+
+## 5. Before publishing
 
 - Every submodule pin exists on its remote (`git ls-remote`), the nested dsp56300 one
   included.

@@ -15,7 +15,8 @@ and a standalone program, and a panel that looks and handles like the hardware.
 
 You need your own ROM images. **This repository contains no Roland data and never will.**
 
-**Status: in development; nothing to download yet.**
+**Status: in development; nothing to download yet.** The plugin builds and plays, with a
+plain first panel (display, switches, knob); the panel after the unit comes next.
 
 ## Origin and thanks
 

@@ -20,6 +20,15 @@
       MIDI MESSAGE lamp from the firmware), `mt32_render` with a panel test. Linux and
       Windows (mingw) build and render the same, bit for bit; all six old MT-32 firmwares
       start and play.
+- [x] Plugin, first state (12.11.2026): `plugin/ostrich` after Ostrich 55 (VST3, CLAP,
+      standalone; Linux and Windows). ROM search by content in the ROM folders and zips,
+      CHOOSE FILE while none is complete (copies to `C:\ProgramData\Ostrich 32\roms`);
+      the control ROM in the bar (the machines the images make; v1.04 by default; the
+      session keeps it); the machine starts in `activate()` or on a worker thread, never on
+      the audio thread; MIDI at its frame; MIDI IN and BUFFER for the Windows standalone as
+      in Ostrich 55. A plain panel: the 20 characters (drawn with a font), MIDI MESSAGE,
+      the ten switches, the knob (the firmware's pot; drag, wheel over knob or display,
+      arrow keys). `tools/ostrich_clap_render` plays through the CLAP.
 
 ## Next
 
@@ -35,18 +44,18 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       sample-accurate MIDI, the display and buttons for finding sounds, and the early
       firmwares selectable (v1.04 default, 1.05 to 1.07 to try). SysEx stays planned (DOS
       games load their sounds with it), but after the basics.
-- [ ] ROM setup in the plugin: the panel's CHOOSE FILE as in Ostrich 55, zips included.
-- [ ] Plugin: VST3, CLAP, standalone (Windows, Linux), MIDI in with sample-accurate timing,
-      SysEx in (CLAP, standalone; VST3 needs the DPF fork, as for Ostrich 55). The core is
-      not thread-safe: panel actions and the display go through the audio thread.
-- [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the MT-32's display and
-      every button and the knob, all driving the firmware. Extra functions in the bar under
-      the panel, as few as possible; a SETUP panel only if they do not fit.
+- [ ] The owner's first look on Windows: standalone and a DAW (VST3 in Cubase, CLAP),
+      the switches and the knob against the unit's behaviour, switching the control ROM.
+- [ ] SysEx in: CLAP and standalone pass it; VST3 needs the DPF fork, as for Ostrich 55.
+- [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
+      dot matrix (the font of its controller), the body, the switches and the knob after
+      the unit. Extra functions in the bar, as few as possible.
+- [ ] The MIDI MESSAGE lamp is read 30 times a second; a short blink may be missed. Read
+      the LEDs every block if it looks wrong.
+- [ ] States meant only for the panel (status, romset, machines, panel) end up in the saved
+      session too (seen in the CLAP state); harmless, but tidy that up (Ostrich 55 too).
 - [ ] Real-time safety: `emu88_get_display_text` builds a `std::string`; read the display
       once per block or less, or find an allocation-free way.
-- [ ] Startup: opening a machine takes about 0.7 s (firmware boot); keep it off the audio
-      thread.
-- [ ] `tools/ostrich_clap_render` and a smoke test without ROMs.
 - [ ] CI as for Ostrich 55 and 7765: Linux and Windows (mingw, cross-compiled), zips with
       the licence texts, a `v*` tag publishes a release. 88emu's build needs about 660 MB of
       shallow submodules; cache them.

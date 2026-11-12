@@ -48,7 +48,9 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       `%LOCALAPPDATA%\Programs\Common\VST3`, the CLAP in `...\Common\CLAP`), the switches
       and the knob against the unit's behaviour, switching the control ROM. Seen in the
       standalone (12.11.2026): the ROMs from a zip are taken; a keyboard plays once it
-      sends on channel 2.
+      sends on channel 2. The VST3 in Cubase (12.11.2026): playable latency; switches,
+      knob, display and sound work. Still to see: switching the control ROM, and the
+      session restoring it.
 - [ ] Testing happens in the plugin in Cubase from now on: the Windows standalone's
       latency is unplayable even at 64 frames (as for Ostrich 55: WASAPI shared mode
       through RtAudio calls in bursts of a device period). Lower latency there needs

@@ -28,8 +28,13 @@ and reverb ROM of the old board). The owner's own unit was bought in 1987, so an
 version; the panel and the defaults follow the old MT-32, the earliest set (v1.04) first.
 These sets are at hand on the build host (`~/coding/ostrich32-roms`).
 
-- [ ] Listening check on the owner's Windows machine: `mt32_render` WAVs (v1.04) against
-      the owner's recordings of their MT-32.
+- [ ] Listening check by the owner, by rebuilding songs: the owner's MT-32 songs of 1987
+      survive only as digitised cassette recordings (no MIDI files), made with the built-in
+      sounds only. The owner plans to rebuild some of them faithfully in Ostrich 32 and
+      compare by ear. So what matters first: the presets as the firmware has them,
+      sample-accurate MIDI, the display and buttons for finding sounds, and the early
+      firmwares selectable (v1.04 default, 1.05 to 1.07 to try). SysEx stays planned (DOS
+      games load their sounds with it), but after the basics.
 - [ ] ROM setup in the plugin: the panel's CHOOSE FILE as in Ostrich 55, zips included.
 - [ ] Plugin: VST3, CLAP, standalone (Windows, Linux), MIDI in with sample-accurate timing,
       SysEx in (CLAP, standalone; VST3 needs the DPF fork, as for Ostrich 55). The core is

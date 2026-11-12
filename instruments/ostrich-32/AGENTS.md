@@ -44,6 +44,8 @@ BUILDING.md how to build it, ROADMAP.md what is open.
   and the drivers (GPL) are not part of Ostrich 32.
 - libmt32emu recognises the ROM images by SHA-1 (`munt/mt32emu/src/ROMInfo.cpp`), never by
   name; it also joins the two halves of the MT-32's split control and PCM ROMs.
+- libmt32emu emulates the display as MIDI drives it, not the front panel: the buttons and
+  the SELECT/VOLUME knob are Ostrich 32's own code (docs/PANEL.md).
 - DPF is our fork Helge666/DPF (branch `logan`, pinned to a tag); nothing is patched at
   build time and `plugin/dpf` stays clean. Changes to DPF are commits in the fork
   (DPF-LOGAN.md).

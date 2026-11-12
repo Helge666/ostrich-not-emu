@@ -25,9 +25,10 @@ build host (`~/coding/ostrich32-roms`, recognised by libmt32emu on 12.11.2026).
       a short burst of level; compare with mt32emu_qt and, if possible, a real unit.
 - [ ] Plugin: VST3, CLAP, standalone (Windows, Linux), MIDI in with sample-accurate timing,
       SysEx in (CLAP, standalone; VST3 needs the DPF fork, as for Ostrich 55).
-- [ ] Panel after the hardware: the MT-32's front (LCD with its 20 characters, PART
-      buttons, VOLUME, the MASTER VOLUME knob, MIDI MESSAGE lamp), drawn after the unit, not
-      a copy of it.
+- [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the MT-32's display and
+      every button and the knob; the buttons' behaviour built on top of libmt32emu (it
+      emulates the display, not the front panel), after the owner's manual. Extra functions
+      in the bar under the panel, as few as possible; a SETUP panel only if they do not fit.
 - [ ] `tools/ostrich_clap_render` and a smoke test without ROMs.
 - [ ] CI as for Ostrich 55 and 7765: Linux and Windows (mingw, cross-compiled), zips with
       the licence texts, a `v*` tag publishes a release.

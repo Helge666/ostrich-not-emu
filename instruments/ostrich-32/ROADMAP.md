@@ -44,8 +44,19 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       sample-accurate MIDI, the display and buttons for finding sounds, and the early
       firmwares selectable (v1.04 default, 1.05 to 1.07 to try). SysEx stays planned (DOS
       games load their sounds with it), but after the basics.
-- [ ] The owner's first look on Windows: standalone and a DAW (VST3 in Cubase, CLAP),
-      the switches and the knob against the unit's behaviour, switching the control ROM.
+- [ ] The owner's first look on Windows: the VST3 in Cubase (installed per user in
+      `%LOCALAPPDATA%\Programs\Common\VST3`, the CLAP in `...\Common\CLAP`), the switches
+      and the knob against the unit's behaviour, switching the control ROM. Seen in the
+      standalone (12.11.2026): the ROMs from a zip are taken; a keyboard plays once it
+      sends on channel 2.
+- [ ] Testing happens in the plugin in Cubase from now on: the Windows standalone's
+      latency is unplayable even at 64 frames (as for Ostrich 55: WASAPI shared mode
+      through RtAudio calls in bursts of a device period). Lower latency there needs
+      WASAPI low-latency shared mode or ASIO in our DPF fork, with the owner.
+- [ ] Channel 1 for a keyboard in the standalone: the MT-32 hears its parts on channels
+      2-10 (PART 1 = 2, RHYTHM = 10) and nothing on 1, so a keyboard on channel 1 stays
+      silent. Perhaps a switch in the bar that hands channel 1 to PART 1 (an extra the unit
+      does not have; decide with the owner).
 - [ ] SysEx in: CLAP and standalone pass it; VST3 needs the DPF fork, as for Ostrich 55.
 - [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
       dot matrix (the font of its controller), the body, the switches and the knob after

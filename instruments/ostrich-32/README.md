@@ -44,7 +44,8 @@ Submodules:
 ## Licences
 
 - Ostrich 32 as a whole: GPL-3.0-or-later ([LICENSE](LICENSE)).
-- libmt32emu (`munt/mt32emu/`): LGPL-2.1-or-later (`munt/mt32emu/COPYING.LESSER.txt`).
+- libmt32emu (`munt/mt32emu/`) and our core around it (`plugin/core/`):
+  LGPL-2.1-or-later (`munt/mt32emu/COPYING.LESSER.txt`).
 - Third-party code and its licences: [THIRD-PARTY.md](THIRD-PARTY.md).
 
 "Roland", "MT-32", "CM-32L", "CM-64" and "LAPC-I" are trademarks of Roland Corporation.

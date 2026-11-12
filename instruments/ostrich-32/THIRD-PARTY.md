@@ -25,8 +25,11 @@ Ostrich 32 uses libmt32emu as it is, unmodified, built from the Munt source at a
 tag. Of the Munt project only the library is used; mt32emu_qt, the drivers and the other
 programs are not part of Ostrich 32. The LGPL 2.1 allows libmt32emu to be combined into a
 GPL 3.0 program; its own notices stay as they are, and the complete source of every
-release, libmt32emu included, is public. Our own files say which licence they are under in
-their first lines.
+release, libmt32emu included, is public. libmt32emu is built with Munt's own CMake, as a
+static library with its built-in resampler. Our own files say which licence they are under
+in their first lines: the core around libmt32emu (`plugin/core/`) is LGPL-2.1-or-later
+like libmt32emu; the plugin and the tools are GPL-3.0-or-later. Combined, the binaries are
+under the GPL 3.0.
 
 No Roland control ROM, PCM ROM, SysEx data or manual is part of this project. "Roland",
 "MT-32", "CM-32L", "CM-64" and "LAPC-I" are trademarks of Roland Corporation; this project

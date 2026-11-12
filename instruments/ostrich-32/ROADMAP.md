@@ -15,8 +15,14 @@ ROM). The owner's own unit was bought in 1987, so an early version; the panel an
 defaults follow the old MT-32, the earliest set (v1.04) first. These sets are at hand on the
 build host (`~/coding/ostrich32-roms`, recognised by libmt32emu on 12.11.2026).
 
-- [ ] Core: libmt32emu built as a static library (CMake, C++ interface off, internal
-      resampler), the ROM setup by SHA-1 with the panel's CHOOSE FILE as in Ostrich 55.
+- [x] Core (12.11.2026): libmt32emu built with Munt's CMake as a static library (C++
+      interface, built-in resampler), `plugin/core/mt32_core` (ROM images by SHA-1, the
+      complete machines, MIDI with frame offsets, rendering at the host's rate, the LCD and
+      the MIDI MESSAGE lamp), `mt32_render`. Linux and Windows (mingw) build; all five old
+      MT-32 sets play, sound starts on the frame asked for.
+- [ ] ROM setup in the plugin: the panel's CHOOSE FILE as in Ostrich 55, zips included.
+- [ ] Listening check: after a note-off of the test chord (v1.04, part 1's power-on sound) there is
+      a short burst of level; compare with mt32emu_qt and, if possible, a real unit.
 - [ ] Plugin: VST3, CLAP, standalone (Windows, Linux), MIDI in with sample-accurate timing,
       SysEx in (CLAP, standalone; VST3 needs the DPF fork, as for Ostrich 55).
 - [ ] Panel after the hardware: the MT-32's front (LCD with its 20 characters, PART

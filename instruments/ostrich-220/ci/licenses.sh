@@ -4,7 +4,7 @@
 # The licence texts the binaries' parts ask to travel with them (THIRD-PARTY.md), into a
 # folder of a release zip.
 #
-#   .github/licenses.sh <folder>
+#   ci/licenses.sh <folder>
 
 set -euo pipefail
 cd "$(dirname "$0")/.."

@@ -2,7 +2,7 @@
 
 An emulation of the **Roland SC-55 Sound Canvas** (1991) as a VST3/CLAP plugin and a
 standalone program. A non-commercial fan project, the sister of
-[Ostrich 220](https://github.com/Helge666/ostrich220).
+[Ostrich 220](../ostrich-220/).
 
 The emulation is **[Nuked-SC55](https://github.com/nukeykt/Nuked-SC55)** by nukeykt, in
 [J.C. Moyer's fork](https://github.com/jcmoyer/Nuked-SC55) (see [Origin and
@@ -110,20 +110,20 @@ nukeykt has archived Nuked-SC55 and relicensed it under the GPL 2.0 or later. Os
 uses its backend unmodified, keeps every notice and follows the licence. Please report bugs
 you find in Ostrich 55 here, not to nukeykt or J.C. Moyer.
 
-Ostrich 55's plugin follows [Ostrich 220](https://github.com/Helge666/ostrich220), whose
+Ostrich 55's plugin follows [Ostrich 220](../ostrich-220/), whose
 resampler comes from Elliott H. Liggett's emu110 / Voltaire 110.
 
 Submodules:
 
 | Path | Source | What for |
 |---|---|---|
-| `nuked-sc55/` | [Helge666/Nuked-SC55](https://github.com/Helge666/Nuked-SC55), a fork of [jcmoyer/Nuked-SC55](https://github.com/jcmoyer/Nuked-SC55), itself a fork of [nukeykt/Nuked-SC55](https://github.com/nukeykt/Nuked-SC55) | the emulation (its backend, unmodified) |
+| `third_party/nuked-sc55/` | [Helge666/Nuked-SC55](https://github.com/Helge666/Nuked-SC55), a fork of [jcmoyer/Nuked-SC55](https://github.com/jcmoyer/Nuked-SC55), itself a fork of [nukeykt/Nuked-SC55](https://github.com/nukeykt/Nuked-SC55) | the emulation (its backend, unmodified) |
 | `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF), [DPF-LOGAN.md](../../DPF-LOGAN.md)) | plugin framework |
 
 ## Licences
 
 - Ostrich 55 as a whole: GPL-3.0-or-later ([LICENSE](LICENSE)).
-- Nuked-SC55 (`nuked-sc55/`) and our core around it (`plugin/core/`): GPL-2.0-or-later.
+- Nuked-SC55 (`third_party/nuked-sc55/`) and our core around it (`plugin/core/`): GPL-2.0-or-later.
 - Third-party code and its licences: [THIRD-PARTY.md](THIRD-PARTY.md).
 
 "Roland", "SC-55" and "Sound Canvas" are trademarks of Roland Corporation. This project is

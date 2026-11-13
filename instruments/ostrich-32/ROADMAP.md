@@ -69,10 +69,12 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       session too (seen in the CLAP state); harmless, but tidy that up (Ostrich 55 too).
 - [ ] Real-time safety: `emu88_get_display_text` builds a `std::string`; read the display
       once per block or less, or find an allocation-free way.
-- [ ] CI as for Ostrich 55 and 7765: Linux and Windows (mingw, cross-compiled), zips with
-      the licence texts, a `v*` tag publishes a release. 88emu's build needs about 660 MB of
-      shallow submodules; cache them.
-- [ ] GitHub repository `Helge666/ostrich32` (with the owner).
+- [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
+      Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
+      publishes a release. Written 13.11.2026; green on GitHub still to be seen. 88emu's
+      build needs about 660 MB of shallow submodules; cache them if it is slow.
+- [x] GitHub: part of the monorepo `Helge666/ostrich-not-emu` instead of a repository of
+      its own (13.11.2026).
 
 ## Later
 

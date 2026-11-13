@@ -29,7 +29,7 @@ Playing it
   keyboard press PART and INSTRUMENT.
 - VOLUME is the output level; the host can automate it.
 
-More: https://github.com/Helge666/ostrich55
+More: https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-55
 
 Licence: GPL-3.0-or-later (LICENSE.txt). The emulation core, Nuked-SC55, is
 GPL-2.0-or-later. Third-party code and its licences: THIRD-PARTY.txt.

@@ -31,7 +31,7 @@ nice -n 19 make -j5 win      # Windows: VST3, CLAP, standalone       -> plugin/o
 Each run, in order:
 
 1. builds the emulation core, `plugin/tools/build_core.sh`: Nuked-SC55's backend
-   (`nuked-sc55/src/backend`, unmodified, without its CMake build, which wants SDL2 for the
+   (`third_party/nuked-sc55/src/backend`, unmodified, without its CMake build, which wants SDL2 for the
    frontends) plus `plugin/core/`, into `plugin/build-core/libsc55core.a` (Windows:
    `plugin/ostrich/build-win/core/`), and the tool `sc55_render`;
 2. links the plugin. A core newer than a binary forces the relink.
@@ -109,6 +109,6 @@ git log --all --name-only --format= | sort -u | grep -iE '\.(bin|rom|syx|ic[0-9]
 | `plugin/ostrich/` | the plugin: DSP (`OstrichPlugin.cpp`), panel (`OstrichUI.cpp`), resampler, zip reader |
 | `plugin/core/` | `sc55::Core`, the core around Nuked-SC55's `Emulator`, and ROM recognition |
 | `plugin/tools/` | `build_core.sh`, `sc55_render`, `ostrich_clap_render` |
-| `nuked-sc55/` | Nuked-SC55 (submodule); only `src/backend` is built |
+| `third_party/nuked-sc55/` | Nuked-SC55 (submodule); only `src/backend` is built |
 | `installer/` | the NSIS script, its build script and the README that goes with the installer |
 | `roms/` | the place for your own ROM images during development (ignored by git) |

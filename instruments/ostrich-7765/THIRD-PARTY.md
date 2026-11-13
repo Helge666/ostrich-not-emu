@@ -15,7 +15,7 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 | MAME's TR-707 sound board (`src/mame/roland/roland_tr707.cpp`), ported to C++ | `plugin/ostrich/engine/Tr707.cpp`, `Analog.hpp` | BSD-3-Clause (`plugin/ostrich/engine/LICENSE-MAME-BSD3.txt`) | AJR, m1macrophage |
 
 The release zips carry these licence texts in their folder `licenses`, next to the GPL 3.0
-(`LICENSE`); `.github/licenses.sh` puts them together.
+(`LICENSE`); `ci/licenses.sh` puts them together.
 
 No Roland sound ROM, firmware, manual or schematic is part of this project. "Roland",
 "TR-505", "TR-626", "TR-707" and "TR-727" are trademarks of Roland Corporation; this

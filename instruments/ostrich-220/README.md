@@ -152,7 +152,7 @@ Submodules:
 
 | Path | Source | What for |
 |---|---|---|
-| `mame/` | [Helge666/mame](https://github.com/Helge666/mame), branch `u220` (a fork of emu110's `eliggett/mame`) | CPU, PCM chip, the `roland_u220` driver, IC25 mixer |
+| `third_party/mame/` | [Helge666/mame](https://github.com/Helge666/mame), branch `ostrich` (a fork of emu110's `eliggett/mame`) | CPU, PCM chip, the `roland_u220` driver, IC25 mixer |
 | `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF) with our changes; pugl from [Helge666/pugl](https://github.com/Helge666/pugl)) | plugin framework |
 
 ## Licences

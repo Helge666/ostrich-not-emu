@@ -3,8 +3,8 @@
 #
 # The install instructions, in one place: INSTALL.txt in each zip, and the release notes.
 #
-#   .github/release-text.sh windows|linux
-#   .github/release-text.sh notes VERSION
+#   ci/release-text.sh windows|linux
+#   ci/release-text.sh notes VERSION
 
 set -euo pipefail
 
@@ -12,8 +12,9 @@ roms() {
 	cat <<'EOF'
 You need your own ROM images of an SC-55 (mk1), firmware v1.00, 1.10, 1.20, 1.21 or
 2.00: the CPU ROM, the program ROM and the three wave ROMs. They are recognised by their
-SHA-256, so the file names do not matter. The list, with checksums: roms/README.md in the
-source repository. No ROMs are included, and none ever will be.
+SHA-256, so the file names do not matter. The list, with checksums:
+instruments/ostrich-55/roms/README.md in the source repository. No ROMs are included, and
+none ever will be.
 
 The easy way: load the plugin. While images are missing, the panel shows them; click
 CHOOSE FILE and pick any one of your ROM images, or a zip with them. The others in the
@@ -25,7 +26,8 @@ where they were looked for.
 
 Ostrich 55 runs on Nuked-SC55 by nukeykt and J.C. Moyer (GPL-2.0-or-later); everyone
 whose work it builds on is named in README.md and THIRD-PARTY.md. The licence texts are
-in the folder licenses. Source: https://github.com/Helge666/ostrich55
+in the folder licenses.
+Source: https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-55
 EOF
 }
 
@@ -89,8 +91,8 @@ Known limitations: the VST3 takes no SysEx from the DAW yet (the CLAP and the st
 do); only the SC-55 mk1 so far. See the README.
 
 Testers welcome: please report what works and what does not (DAW, OS, format) as an
-[issue](https://github.com/Helge666/ostrich55/issues). Please do not report Ostrich 55's
-problems to Nuked-SC55's authors.
+[issue](https://github.com/Helge666/ostrich-not-emu/issues), naming Ostrich 55. Please do
+not report Ostrich 55's problems to Nuked-SC55's authors.
 EOF
 }
 

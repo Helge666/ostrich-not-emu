@@ -4,7 +4,7 @@ Your own ROM dumps go here during development. Git ignores everything in this fo
 this file. **Never add them with `git add -f`.**
 
 Ostrich 55 recognises the images by their SHA-256 (Nuked-SC55's table,
-`nuked-sc55/src/backend/standard_romsets.cpp`), not by their names. An SC-55 (mk1) needs
+`third_party/nuked-sc55/src/backend/standard_romsets.cpp`), not by their names. An SC-55 (mk1) needs
 five: the H8/532's internal ROM, its program ROM, and the three wave ROMs, which all
 versions share.
 

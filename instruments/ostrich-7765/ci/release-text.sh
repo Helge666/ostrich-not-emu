@@ -3,8 +3,8 @@
 #
 # The install instructions, in one place: INSTALL.txt in each zip, and the release notes.
 #
-#   .github/release-text.sh windows|linux
-#   .github/release-text.sh notes VERSION
+#   ci/release-text.sh windows|linux
+#   ci/release-text.sh notes VERSION
 
 set -euo pipefail
 
@@ -12,8 +12,12 @@ roms() {
 	cat <<'EOF'
 You need your own ROM images: the sound ROMs of the machines you want to play (TR-505,
 TR-626, TR-707; the TR-727's are prepared). They are recognised by their contents, so the
-file names do not matter. The list: roms/README.md in the source repository. No ROMs are
-included, and none ever will be.
+file names do not matter. The list: instruments/ostrich-7765/roms/README.md in the source
+repository. No ROMs are included, and none ever will be.
+
+Everyone whose work Ostrich 7765 builds on is named in README.md and THIRD-PARTY.md. The
+licence texts are in the folder licenses.
+Source: https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-7765
 EOF
 }
 

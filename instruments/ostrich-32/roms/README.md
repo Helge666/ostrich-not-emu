@@ -7,7 +7,7 @@ it out of the repository.
 
 The images are recognised by their content (size and MD5 or SHA-1), never by name.
 Ostrich 32 leaves that to 88emu's ROM registry, which lists every known image:
-`gearmulator/source/ronaldo/88emu/88lib/rom/romRegistry.h`. In short:
+`third_party/gearmulator/source/ronaldo/88emu/88lib/rom/romRegistry.h`. In short:
 
 | Model | Control ROM | PCM ROM | Reverb ROM |
 |---|---|---|---|

@@ -114,7 +114,7 @@ git log --all --name-only --format= | sort -u | grep -iE '\.(bin|rom|syx|ic[0-9]
 | `plugin/core/` | the emulation core `U220Core` and the effect models |
 | `plugin/compat/` | the minimal MAME framework the core compiles MAME's devices against |
 | `plugin/tools/` | core build script, `u220_render`, `u220_reverb_run`, `ostrich_clap_render` |
-| `mame/src/mame/roland/roland_u220.cpp` | the MAME driver; `roland_u220_ic25.h` is shared with the core |
+| `third_party/mame/src/mame/roland/roland_u220.cpp` | the MAME driver; `roland_u220_ic25.h` is shared with the core |
 | `tools/` | measurement, A/B and SysEx tools (Python), MAME helper scripts |
 | `analysis/` | what is known about the hardware and the firmware |
 | `listen/` | notes on listening tests (the audio itself stays out of the repository) |

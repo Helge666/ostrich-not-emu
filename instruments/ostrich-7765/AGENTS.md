@@ -44,7 +44,7 @@ analysis/ what is known about the hardware.
 - No firmware dump exists for the TR-505, TR-626 or TR-707. Only the TR-727's firmware is
   at hand (its hardware is the TR-707's). The owner has a working TR-505 and TR-626 for
   measurements; the TR-727's sound ROMs are not yet at hand.
-- The version is in `plugin/ostrich/Version.hpp`, nowhere else; CI refuses a `v*` tag that
+- The version is in `plugin/ostrich/Version.hpp`, nowhere else; CI refuses an `ostrich7765-v*` tag that
   does not match it.
 - DPF is our fork Helge666/DPF (branch `logan`, pinned to a tag); nothing is patched at
   build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork.

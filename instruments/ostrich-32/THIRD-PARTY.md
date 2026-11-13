@@ -5,15 +5,15 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 
 | Component | Where | Licence | Copyright |
 |---|---|---|---|
-| gearmulator, 88emu | `gearmulator/` (submodule): `source/ronaldo/88emu` (the MT-32 and CM-32L boards), `source/framework`, the CPU cores in `source/cpu` | GPL-3.0 (`gearmulator/LICENSE.md`) | The Usual Suspects ([dsp56300.com](https://dsp56300.com/)) |
+| gearmulator, 88emu | `third_party/gearmulator/` (submodule): `source/ronaldo/88emu` (the MT-32 and CM-32L boards), `source/framework`, the CPU cores in `source/cpu` | GPL-3.0 (`third_party/gearmulator/LICENSE.md`) | The Usual Suspects ([dsp56300.com](https://dsp56300.com/)) |
 | Nuked-MT32 | inside 88emu: its LA32 emulation is derived from it | GPL-2.0-or-later | nukeykt |
 | HG61H20R36F emulator (Munt) | inside 88emu: its Boss reverb emulation is derived from it | LGPL-2.1-or-later | Sergey V. Mikayev |
-| dsp56300 | `gearmulator/source/cpu/dsp56300` (submodule of the submodule): its base library (threads, logging) | GPL-3.0 (`LICENSE.md` there) | The Usual Suspects |
-| AsmJit | `gearmulator/source/cpu/dsp56300/source/asmjit`: the JIT of the reverb emulation | zlib | The AsmJit Authors |
-| mc68k, Musashi | `gearmulator/source/cpu/mc68k`, linked into 88emu's bundle | GPL-3.0; Musashi MIT-style | The Usual Suspects; Karl Stenerud |
-| libresample | `gearmulator/source/3rdparty/libresample`: resampling to the host's rate | BSD-3-Clause or LGPL-2.1 (`LICENSE-BSD.txt`, `LICENSE-LGPL.txt` there) | Dominic Mazzoni |
-| MAME resamplers | `gearmulator/source/framework/synthLib/mameResamplers.cpp` | BSD-3-Clause | Olivier Galibert |
-| Intel ITT API | `gearmulator/source/cpu/dsp56300/source/vtuneSdk`: profiling hooks, inert in our builds | GPL-2.0-only or BSD-3-Clause | Intel Corporation |
+| dsp56300 | `third_party/gearmulator/source/cpu/dsp56300` (submodule of the submodule): its base library (threads, logging) | GPL-3.0 (`LICENSE.md` there) | The Usual Suspects |
+| AsmJit | `third_party/gearmulator/source/cpu/dsp56300/source/asmjit`: the JIT of the reverb emulation | zlib | The AsmJit Authors |
+| mc68k, Musashi | `third_party/gearmulator/source/cpu/mc68k`, linked into 88emu's bundle | GPL-3.0; Musashi MIT-style | The Usual Suspects; Karl Stenerud |
+| libresample | `third_party/gearmulator/source/3rdparty/libresample`: resampling to the host's rate | BSD-3-Clause or LGPL-2.1 (`LICENSE-BSD.txt`, `LICENSE-LGPL.txt` there) | Dominic Mazzoni |
+| MAME resamplers | `third_party/gearmulator/source/framework/synthLib/mameResamplers.cpp` | BSD-3-Clause | Olivier Galibert |
+| Intel ITT API | `third_party/gearmulator/source/cpu/dsp56300/source/vtuneSdk`: profiling hooks, inert in our builds | GPL-2.0-only or BSD-3-Clause | Intel Corporation |
 | DPF | `third_party/dpf/` (submodule) | ISC | Filipe Coelho |
 | pugl | `third_party/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
 | NanoVG | `third_party/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |

@@ -6,7 +6,7 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 | Component | Where | Licence | Copyright |
 |---|---|---|---|
 | emu110 / Voltaire 110 | the base of this project; `plugin/compat`, the resampler, the U-110 analyses and tools | GPL-3.0-or-later (plugin, tools); BSD-3-Clause (core, MAME devices) | Elliott H. Liggett |
-| MAME | `mame/` (submodule): the MCS-96 CPU, the Roland LP PCM chip, the drivers | BSD-3-Clause for the devices and drivers built here; MAME as a whole GPL-2.0-or-later | the MAME contributors (Olivier Galibert, Valley Bell, Elliott H. Liggett and others) |
+| MAME | `third_party/mame/` (submodule): the MCS-96 CPU, the Roland LP PCM chip, the drivers | BSD-3-Clause for the devices and drivers built here; MAME as a whole GPL-2.0-or-later | the MAME contributors (Olivier Galibert, Valley Bell, Elliott H. Liggett and others) |
 | DPF | `third_party/dpf/` (submodule) | ISC | Filipe Coelho |
 | pugl | `third_party/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
 | NanoVG | `third_party/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
@@ -16,7 +16,7 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 | RtMidi | built into the standalone through DPF | MIT-style (RtMidi licence) | Gary P. Scavone |
 
 The release zips carry these licence texts in their folder `licenses`, next to the GPL 3.0
-(`LICENSE`); `.github/licenses.sh` puts them together, with the copyright holders of every
+(`LICENSE`); `ci/licenses.sh` puts them together, with the copyright holders of every
 BSD-3-Clause file built into the core.
 
 Our own files say which licence they are under in their first lines: the core

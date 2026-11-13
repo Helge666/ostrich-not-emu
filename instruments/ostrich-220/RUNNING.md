@@ -1,6 +1,6 @@
 # The U-220 in MAME
 
-The MAME driver (`mame/src/mame/roland/roland_u220.cpp`) is where the hardware was worked
+The MAME driver (`third_party/mame/src/mame/roland/roland_u220.cpp`) is where the hardware was worked
 out, and the reference the plugin core is null-tested against. It has no display (the
 LCD controller's character ROM has never been dumped); the display's text goes to the log.
 For the U-110 driver, see [emu110](https://github.com/eliggett/emu110).
@@ -8,13 +8,13 @@ For the U-110 driver, see [emu110](https://github.com/eliggett/emu110).
 ## Build
 
 ```sh
-cd mame
+cd third_party/mame      # from the repository root
 make SUBTARGET=u220 \
      SOURCES=src/mame/roland/roland_u20.cpp,src/mame/roland/roland_u110.cpp,src/mame/roland/roland_u220.cpp \
      NOWERROR=1 USE_QTDEBUG=0 -j5
 ```
 
-The result is `mame/u220`.
+The result is `third_party/mame/u220`.
 
 ## ROMs
 

@@ -84,7 +84,27 @@ must be identical. Ostrich 7765's first notes vary from run to run (seen 13.11.2
 and new builds alike, probably while its ROMs load); put the notes after 3 s for such a
 comparison.
 
-## 5. Shared code and DPF
+## 5. CI and releases
+
+`.github/workflows/build.yml` runs on GitHub; its steps are the scripts in `tools/ci/`,
+which run on the build host just as well. What is particular to an instrument is in its
+`ci/` folder: `ci.conf` (names, release tag, submodules, smoke test), `licenses.sh` (the
+licence texts in the zips) and `release-text.sh` (INSTALL.txt and the release notes).
+
+| Event | What runs |
+|---|---|
+| push to `main` | the instruments whose folders changed; all if anything outside `instruments/` changed; nothing for Markdown alone |
+| tag `<tag>-preview-1.2.3` | that instrument, without a release (the dry run) |
+| tag `<tag>-v1.2.3` | that instrument, then a GitHub release with its zips |
+| manual run | the instruments named, or all |
+
+`<tag>` is `ostrich32`, `ostrich55`, `ostrich220` or `ostrich7765`. The version in a tag
+must be the one in the instrument's source (`tools/ci/version.sh`), or the run fails.
+
+By hand, after `make` and `make win` in an instrument: `tools/ci/smoke.sh 55`,
+`tools/ci/check-imports.sh 55`, `tools/ci/package.sh 55 0.1.0 /tmp/dist`.
+
+## 6. Shared code and DPF
 
 - `shared/` holds what more than one instrument uses (shared/README.md). A change there
   is a change to each instrument that uses it: build them all and compare renders.

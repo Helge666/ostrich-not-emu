@@ -3,8 +3,8 @@
 #
 # The install instructions, in one place: INSTALL.txt in each zip, and the release notes.
 #
-#   .github/release-text.sh windows|linux
-#   .github/release-text.sh notes VERSION
+#   ci/release-text.sh windows|linux
+#   ci/release-text.sh notes VERSION
 
 set -euo pipefail
 
@@ -12,8 +12,8 @@ roms() {
 	cat <<'EOF'
 You need your own ROM images: one U-220 firmware (v1.02 recommended) and the six wave ROMs
 A-F. They are recognised by their SHA-1, so the file names do not matter. The list, with
-checksums: roms/README.md in the source repository. No ROMs are included, and none ever
-will be.
+checksums: instruments/ostrich-220/roms/README.md in the source repository. No ROMs are
+included, and none ever will be.
 
 The easy way: load the plugin. While images are missing, the panel shows them; click
 CHOOSE FILE and pick any one of your ROM images, or a zip with them (MAME's u220.zip will
@@ -25,6 +25,10 @@ the ROMs. A new instance then starts with the 64 factory patches.
 
 The status line under the panel says which images were found, or which are missing and
 where they were looked for.
+
+Everyone whose work Ostrich 220 builds on is named in README.md and THIRD-PARTY.md. The
+licence texts are in the folder licenses.
+Source: https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-220
 EOF
 }
 

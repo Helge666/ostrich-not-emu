@@ -22,7 +22,7 @@ BUILDING.md how to build it, ROADMAP.md what is open.
   repository too. `.gitignore` covers the known formats; check `git status` before every
   commit. The owner's dumps in `../Research/` never enter the repository.
 - **Respect every licence; we stand on the shoulders of giants.** gearmulator is GPL-3.0,
-  with parts under their own licences (`gearmulator/doc/88emu_readme.md`): keep its
+  with parts under their own licences (`third_party/gearmulator/doc/88emu_readme.md`): keep its
   notices, change it only by commits in our fork, and credit The Usual Suspects, nukeykt
   (Nuked-MT32), Sergey V. Mikayev and Munt wherever the project names where its sound comes
   from. New files say their licence in the first line (GPL-3.0-or-later). Third-party code
@@ -46,7 +46,7 @@ BUILDING.md how to build it, ROADMAP.md what is open.
 
 ## Facts that are easy to get wrong
 
-- The submodule `gearmulator/` is our fork Helge666/gearmulator, pinned to a tag
+- The submodule `third_party/gearmulator/` is our fork Helge666/gearmulator, pinned to a tag
   (`ostrich-N`) on its branch `ostrich`: an upstream release plus only commits a mingw-w64
   build needs; its dsp56300 submodule points to Helge666/dsp56300 the same way
   (BUILDING.md). Only 88emu is built (`88emu_bundle`). Never clone it with all submodules:
@@ -67,7 +67,7 @@ BUILDING.md how to build it, ROADMAP.md what is open.
 - DPF is our fork Helge666/DPF (branch `logan`, pinned to a tag); nothing is patched at
   build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork
   (DPF-LOGAN.md).
-- The version is in `plugin/ostrich/Version.hpp`, nowhere else; CI will refuse a `v*` tag
+- The version is in `plugin/ostrich/Version.hpp`, nowhere else; CI refuses an `ostrich32-v*` tag
   that does not match it.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%`
   are invisible to the DAW; the ROM folder is `C:\ProgramData\Ostrich 32\roms`.

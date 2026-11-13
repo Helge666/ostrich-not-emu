@@ -2,9 +2,9 @@
 
 An emulation of the **Roland MT-32** (1987) and its relatives **CM-32L and CM-32LN** as a
 VST3/CLAP plugin and a standalone program. A non-commercial fan project, the sibling of
-[Ostrich 55](https://github.com/Helge666/ostrich55),
-[Ostrich 220](https://github.com/Helge666/ostrich220) and
-[Ostrich 7765](https://github.com/Helge666/ostrich7765).
+[Ostrich 55](../ostrich-55/),
+[Ostrich 220](../ostrich-220/) and
+[Ostrich 7765](../ostrich-7765/).
 
 The emulation is **88emu**, part of [gearmulator](https://github.com/dsp56300/gearmulator)
 by The Usual Suspects (see [Origin and thanks](#origin-and-thanks)). It runs the unit's
@@ -33,7 +33,7 @@ Ostrich 32 stands on the shoulders of giants.
   (LGPL-2.1-or-later), and its MT-32 ROM catalogue and much of what is known about the
   MT-32 family come from Munt: Dean Beeler, Jerome Fisher, Sergey V. Mikayev and the Munt
   contributors. Ostrich 32's first core was built on Munt's libmt32emu.
-- 88emu's own credits (`gearmulator/doc/88emu_readme.md`) name many more: MAME and
+- 88emu's own credits (`third_party/gearmulator/doc/88emu_readme.md`) name many more: MAME and
   mamedev, the DTM MIDI Central community, the die-shot photographers and others.
 - Ostrich 32 uses gearmulator from our fork
   [Helge666/gearmulator](https://github.com/Helge666/gearmulator), pinned to a tag on its
@@ -47,15 +47,15 @@ Submodules:
 
 | Path | Source | What for |
 |---|---|---|
-| `gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), a fork of [dsp56300/gearmulator](https://github.com/dsp56300/gearmulator), at tag `ostrich-1` (upstream `2.2.27` plus mingw-w64 fixes) | the emulation (88emu) |
+| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), a fork of [dsp56300/gearmulator](https://github.com/dsp56300/gearmulator), at tag `ostrich-1` (upstream `2.2.27` plus mingw-w64 fixes) | the emulation (88emu) |
 | `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF), [DPF-LOGAN.md](../../DPF-LOGAN.md)) | plugin framework |
 
 ## Licences
 
 - Ostrich 32 as a whole: GPL-3.0-or-later ([LICENSE](LICENSE)).
-- gearmulator and 88emu: GPL-3.0 (`gearmulator/LICENSE.md`); parts derived from other free
+- gearmulator and 88emu: GPL-3.0 (`third_party/gearmulator/LICENSE.md`); parts derived from other free
   software keep their licences (Nuked-MT32 GPL-2.0-or-later, the reverb after Munt
-  LGPL-2.1-or-later), see `gearmulator/doc/88emu_readme.md`.
+  LGPL-2.1-or-later), see `third_party/gearmulator/doc/88emu_readme.md`.
 - Third-party code and its licences: [THIRD-PARTY.md](THIRD-PARTY.md).
 
 "Roland", "MT-32", "CM-32L" and "CM-32LN" are trademarks of Roland Corporation. This

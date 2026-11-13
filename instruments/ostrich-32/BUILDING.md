@@ -51,9 +51,9 @@ uses. `build_core.sh` sets both for a mingw build.
 To move to a newer gearmulator release (together with the owner): in our forks, start a new
 `ostrich` state from the new upstream tag and the commit dsp56300 is pinned to there,
 re-apply the commits above that upstream has not taken (drop the rest), tag `ostrich-N`,
-push branch and tag, then point `gearmulator` at the new tag and commit. Read the release
+push branch and tag, then point `third_party/gearmulator` at the new tag and commit. Read the release
 notes first and compare renders of `mt32_render` before and after. Nothing in
-`gearmulator/` is ever changed in place.
+`third_party/gearmulator/` is ever changed in place.
 
 ## 3. The core
 

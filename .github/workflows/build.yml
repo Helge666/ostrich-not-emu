@@ -1,0 +1,273 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Build the Ostrich instruments for Linux and Windows and, for a release tag, publish a
+# release of that one instrument. From the workflows of Ostrich 55, 220 and 7765, which go
+# back to emu110's (Elliott H. Liggett).
+#
+# Everything particular to an instrument is in instruments/<name>/ci/ (ci.conf, licenses.sh,
+# release-text.sh); the steps are tools/ci/*.sh, which run on the build host as well.
+#
+#   push to main               build the instruments whose folders changed (all, if anything
+#                              outside instruments/ changed; nothing for Markdown alone)
+#   tag <tag>-preview-1.2.3    build that instrument; no release (the dry run)
+#   tag <tag>-v1.2.3           build it, then publish a GitHub release with its zips
+#   manual run                 the instruments named, or all
+#
+# <tag> is TAG in the instrument's ci.conf (ostrich55, ostrich220, ...). The version in the
+# tag must be the one in the instrument's source (tools/ci/version.sh).
+#
+# One runner per instrument builds both platforms: Windows is cross-compiled with mingw-w64,
+# as on the build host (BUILDING.md). No ROMs anywhere: the smoke test loads the plugin
+# without them and checks that it starts, reports what is missing, and saves its state.
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - '*-v*'
+      - '*-preview-*'
+  workflow_dispatch:
+    inputs:
+      instruments:
+        description: 'Instruments, separated by spaces (32 55 220 7765); empty: all'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  CCACHE_DIR: /home/runner/.ccache
+  CCACHE_MAXSIZE: 500M
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      instruments: ${{ steps.pick.outputs.instruments }}
+      release: ${{ steps.pick.outputs.release }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Check that no ROM or recording is tracked
+        run: tools/ci/check-roms.sh
+
+      - name: Pick the instruments
+        id: pick
+        env:
+          BEFORE: ${{ github.event.before }}
+          WANTED: ${{ github.event.inputs.instruments }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ -n "$WANTED" ]; then
+            list=""
+            for i in $WANTED; do list="$list${list:+,}\"ostrich-${i#ostrich-}\""; done
+            list="[$list]"
+          elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            list="$(tools/ci/instruments.sh "$GITHUB_REF")"
+          else
+            list="$(tools/ci/instruments.sh "$GITHUB_REF" "$BEFORE")"
+          fi
+          release=false
+          [[ "$GITHUB_REF" =~ ^refs/tags/[a-z0-9]+-v[0-9] ]] && release=true
+          echo "instruments=$list" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Plan::$list (release: $release)"
+
+  build:
+    name: ${{ matrix.instrument }}
+    needs: plan
+    if: needs.plan.outputs.instruments != '[]'
+    runs-on: ubuntu-24.04
+    # A stalled package mirror once held a run for 40 min in apt; without a limit GitHub
+    # would let it run for 6 hours. Ostrich 32's core (gearmulator) is the longest build.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        instrument: ${{ fromJSON(needs.plan.outputs.instruments) }}
+    env:
+      I: ${{ matrix.instrument }}
+      MT32_JOBS: 4
+
+    steps:
+      # Full history: the version of an untagged build counts the commits.
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Read the instrument's settings
+        id: conf
+        run: |
+          set -euo pipefail
+          . tools/ci/common.sh
+          load_instrument "$I"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          version="$(tools/ci/version.sh "$I" "$GITHUB_REF")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "::notice title=$TITLE::$version ($GITHUB_REF)"
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          # Short timeouts and retries: a stalled mirror connection is dropped and tried
+          # again instead of waiting minutes per package.
+          APT="-o Acquire::Retries=5 -o Acquire::http::Timeout=30"
+          sudo apt-get $APT update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get $APT install -y --no-install-recommends \
+            build-essential git pkg-config ccache cmake python3 zip unzip \
+            libjack-jackd2-dev libgl1-mesa-dev libx11-dev libxext-dev libxcursor-dev \
+            libcairo2-dev libdbus-1-dev g++-mingw-w64-x86-64
+
+      # Two mingw thread models, not link-compatible. win32, as on the build host: the
+      # binaries then need no mingw runtime DLL.
+      - name: Pin the mingw toolchain to the win32 thread model
+        run: |
+          set -euo pipefail
+          for t in gcc g++; do
+            sudo update-alternatives --set "x86_64-w64-mingw32-$t" "/usr/bin/x86_64-w64-mingw32-$t-win32"
+          done
+          x86_64-w64-mingw32-g++ -v 2>&1 | grep -i "thread model"
+
+      - name: Fetch the submodules
+        run: tools/ci/submodules.sh "$I"
+
+      - name: Restore the compiler cache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.ccache
+          key: ccache-ubuntu24-${{ matrix.instrument }}-${{ github.sha }}
+          restore-keys: |
+            ccache-ubuntu24-${{ matrix.instrument }}-
+
+      # Through argv[0], so that the mingw compilers the `win` target names are caught too.
+      - name: Put ccache in front of every compiler
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/ccache-bin"
+          for c in gcc g++ cc c++ x86_64-w64-mingw32-gcc x86_64-w64-mingw32-g++; do
+            ln -sf /usr/bin/ccache "$HOME/ccache-bin/$c"
+          done
+          echo "$HOME/ccache-bin" >> "$GITHUB_PATH"
+          ccache --zero-stats > /dev/null
+
+      - name: Build for Linux (VST3, CLAP, standalone)
+        run: |
+          set -euo pipefail
+          make -C "instruments/$I/plugin/ostrich" -j"$(nproc)"
+          ls -lR "instruments/$I/plugin/bin"
+
+      - name: Smoke test without ROMs
+        run: tools/ci/smoke.sh "$I"
+
+      - name: Cross-compile for Windows (VST3, CLAP, standalone)
+        run: |
+          set -euo pipefail
+          make -C "instruments/$I/plugin/ostrich" -j"$(nproc)" win
+          ls -lR "instruments/$I/plugin/ostrich/bin-win"
+
+      - name: Check the Windows binaries import system DLLs only
+        run: tools/ci/check-imports.sh "$I"
+
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
+
+      - name: Package the zips
+        run: tools/ci/package.sh "$I" "${{ steps.conf.outputs.version }}" dist
+
+      - name: Upload ${{ steps.conf.outputs.name }}-Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.conf.outputs.name }}-Windows
+          path: dist/${{ steps.conf.outputs.name }}-Windows.zip
+          if-no-files-found: error
+
+      - name: Upload ${{ steps.conf.outputs.name }}-Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.conf.outputs.name }}-Linux
+          path: dist/${{ steps.conf.outputs.name }}-Linux.zip
+          if-no-files-found: error
+
+      - name: Collect the build logs (on failure)
+        if: failure()
+        run: |
+          set -uo pipefail
+          . tools/ci/common.sh
+          load_instrument "$I"
+          mkdir -p logs
+          shopt -s nullglob
+          cd "instruments/$I"
+          for f in ${LOGS[@]+"${LOGS[@]}"}; do cp --parents $f "$GITHUB_WORKSPACE/logs/" || true; done
+
+      - name: Upload the build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ matrix.instrument }}
+          path: logs
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release:
+    name: Publish the release
+    needs: [ plan, build ]
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Download the zips
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Write the release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          . tools/ci/common.sh
+          i="$(tools/ci/instruments.sh "$GITHUB_REF" | tr -d '[]"')"
+          load_instrument "$i"
+          version="$(tools/ci/version.sh "$i" "$GITHUB_REF")"
+          "instruments/$i/ci/release-text.sh" notes "$version" > notes.md
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+          echo "title=$TITLE $version" >> "$GITHUB_OUTPUT"
+          ls -l dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          TITLE: ${{ steps.notes.outputs.title }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file notes.md
+          else
+            gh release create "$TAG" --title "$TITLE" --notes-file notes.md --verify-tag
+          fi
+          gh release upload "$TAG" dist/*.zip --clobber

@@ -19,7 +19,7 @@ Decisions so far:
   each other) can come later as an option.
 - Vintage timing: the timing grid of the original CPU's MIDI handling, plus CPU/MIDI
   jitter, optional (as in VPROM 3.0).
-- Version in `plugin/ostrich/Version.hpp`; a `v*` tag publishes a release, `preview-*` is
+- Version in `plugin/ostrich/Version.hpp`; an `ostrich7765-v*` tag publishes a release, `ostrich7765-preview-*` is
   the dry run.
 
 ## Phase 0: the scaffold

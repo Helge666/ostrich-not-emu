@@ -74,16 +74,17 @@ plugin/build-core/sc55_render /path/to/roms out.wav 6 [song.mid]
 `SC55_KEYS="bit@sec,..."` presses panel keys (the bits are `sc55::Button` in
 `plugin/core/sc55_core.h`).
 
-`plugin/tools/ostrich_clap_render.c` loads the CLAP without a host or a display, plays a
-note, presses panel keys, saves the state and writes the output to a WAV:
+`shared/tools/ostrich_clap_render.c` (the monorepo's, for all instruments) loads the CLAP
+without a host or a display, plays a note, presses panel keys, saves the state and writes
+the output to a WAV:
 
 ```sh
-gcc -std=gnu11 -O2 -o ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -I../../third_party/dpf/distrho/src -ldl
-OSTRICH55_ROMS=/path/to/roms ./ostrich_clap_render plugin/bin/Ostrich55.clap out.wav
+gcc -std=gnu11 -O2 -o /tmp/render ../../shared/tools/ostrich_clap_render.c \
+    -I../../third_party/dpf/distrho/src -ldl -lm
+OSTRICH55_ROMS=/path/to/roms /tmp/render plugin/bin/Ostrich55.clap out.wav
 ```
 
-Its arguments are described at the top of the source. Without ROMs the plugin stays
+Its options are described at the top of the source. Without ROMs the plugin stays
 silent and says so in its status; that is the test CI can run.
 
 ## 7. Before publishing
@@ -108,7 +109,7 @@ git log --all --name-only --format= | sort -u | grep -iE '\.(bin|rom|syx|ic[0-9]
 |---|---|
 | `plugin/ostrich/` | the plugin: DSP (`OstrichPlugin.cpp`), panel (`OstrichUI.cpp`), resampler, zip reader |
 | `plugin/core/` | `sc55::Core`, the core around Nuked-SC55's `Emulator`, and ROM recognition |
-| `plugin/tools/` | `build_core.sh`, `sc55_render`, `ostrich_clap_render` |
+| `plugin/tools/` | `build_core.sh`, `sc55_render` |
 | `third_party/nuked-sc55/` | Nuked-SC55 (submodule); only `src/backend` is built |
 | `installer/` | the NSIS script, its build script and the README that goes with the installer |
 | `roms/` | the place for your own ROM images during development (ignored by git) |

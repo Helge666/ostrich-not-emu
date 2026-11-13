@@ -108,16 +108,18 @@ The plugin looks for ROM images in `$OSTRICH32_ROMS`, then `C:\ProgramData\Ostri
 line lists; the panel's CHOOSE FILE copies them there. It starts the control ROM the
 session names, else v1.04, else the first complete one.
 
-`plugin/tools/ostrich_clap_render.c` loads the CLAP without a host or a display, plays a
-note, presses panel switches, saves and prints the state and writes the output to a WAV:
+`shared/tools/ostrich_clap_render.c` (the monorepo's, for all instruments) loads the CLAP
+without a host or a display, plays a note, presses panel switches, saves and prints the
+state and writes the output to a WAV. The MT-32's first part listens on channel 2:
 
 ```bash
-gcc -std=gnu11 -O2 -o plugin/tools/ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -I../../third_party/dpf/distrho/src -ldl
-OSTRICH32_ROMS=~/coding/ostrich32-roms plugin/tools/ostrich_clap_render plugin/bin/Ostrich32.clap /tmp/out.wav
+gcc -std=gnu11 -O2 -o /tmp/render ../../shared/tools/ostrich_clap_render.c \
+    -I../../third_party/dpf/distrho/src -ldl -lm
+OSTRICH32_ROMS=~/coding/ostrich32-roms /tmp/render plugin/bin/Ostrich32.clap /tmp/out.wav \
+    --channel 2 --show-state
 ```
 
-Its arguments are described at the top of the source. Without ROMs the plugin stays silent
+Its options are described at the top of the source. Without ROMs the plugin stays silent
 and says so in its status; that is the test CI can run.
 
 ## 5. Before publishing

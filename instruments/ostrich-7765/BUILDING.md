@@ -32,10 +32,14 @@ The smoke test (as in CI) loads the Linux CLAP without a host, plays a few notes
 the state and writes the outputs to a WAV:
 
 ```sh
-gcc -std=gnu11 -O2 -o plugin/tools/ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -I../../third_party/dpf/distrho/src -ldl
-plugin/tools/ostrich_clap_render plugin/bin/Ostrich7765.clap /tmp/out.wav
+gcc -std=gnu11 -O2 -o /tmp/render ../../shared/tools/ostrich_clap_render.c \
+    -I../../third_party/dpf/distrho/src -ldl -lm
+/tmp/render plugin/bin/Ostrich7765.clap /tmp/out.wav \
+    --notes 36@0.5,38@1.0,42@1.5 --hold 0.25 --channel 10 --seconds 3
 ```
+
+(`shared/tools/ostrich_clap_render.c`, the monorepo's, for all instruments.) The WAV holds
+the mix; `--raw` writes every output channel.
 
 Without ROM images the outputs stay silent. With images in a folder (roms/README.md;
 `OSTRICH_ROMS` points at any folder) each machine plays on its own channel: TR-505 10,
@@ -43,12 +47,12 @@ TR-626 11, TR-707 12, TR-727 13 (changed on the SETTINGS page). For the TR-707's
 drum 2, snare 1 and closed hi-hat:
 
 ```sh
-OSTRICH_ROMS=~/my-roms plugin/tools/ostrich_clap_render plugin/bin/Ostrich7765.clap /tmp/out.wav \
-    36@0.5,38@1.0,42@1.5 12
+OSTRICH_ROMS=~/my-roms /tmp/render plugin/bin/Ostrich7765.clap /tmp/out.wav \
+    --notes 36@0.5,38@1.0,42@1.5 --hold 0.25 --channel 12 --seconds 3
 ```
 
-Its comment at the top lists what it reads from the environment for measuring: parameters
-to set, a state to load or save, all output channels as raw data.
+Its comment at the top lists its options for measuring: parameters to set (`--param`), a
+state to load or save, all output channels as raw data.
 
 `plugin/tools/ostrich_engine_render.cpp` plays a machine's engine without the plugin (every
 sound at three velocities); `tools/check_tr707_render.py` checks such a render against the

@@ -10,7 +10,7 @@ set -euo pipefail
 load_instrument "${1:?instrument}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-gcc -std=gnu11 -O2 -o "$tmp/render" "$IDIR/plugin/tools/ostrich_clap_render.c" \
+gcc -std=gnu11 -O2 -o "$tmp/render" "$ROOT/shared/tools/ostrich_clap_render.c" \
 	-I"$ROOT/third_party/dpf/distrho/src" -ldl -lm
 mkdir -p "$tmp/home" "$tmp/data" "$tmp/config" "$tmp/roms"
 env HOME="$tmp/home" XDG_DATA_HOME="$tmp/data" XDG_CONFIG_HOME="$tmp/config" \

@@ -28,7 +28,7 @@
       the audio thread; MIDI at its frame; MIDI IN and BUFFER for the Windows standalone as
       in Ostrich 55. A plain panel: the 20 characters (drawn with a font), MIDI MESSAGE,
       the ten switches, the knob (the firmware's pot; drag, wheel over knob or display,
-      arrow keys). `tools/ostrich_clap_render` plays through the CLAP.
+      arrow keys). `shared/tools/ostrich_clap_render` plays through the CLAP.
 
 ## Next
 

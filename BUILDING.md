@@ -68,21 +68,22 @@ host must have the commit checked out that the Windows checkout has (`git push k
 
 ## 4. Checking a change
 
-Every instrument has `plugin/tools/ostrich_clap_render.c`: it loads the Linux CLAP without
-a host or a display, plays notes and writes a WAV. Its arguments differ per instrument and
-are described at the top of each source.
+`shared/tools/ostrich_clap_render.c` loads an instrument's Linux CLAP without a host or a
+display, plays notes, presses panel keys, saves and loads state, and writes a WAV. Its
+options are described at the top of the source.
 
 ```sh
-gcc -std=gnu11 -O2 -o /tmp/render instruments/ostrich-55/plugin/tools/ostrich_clap_render.c \
+gcc -std=gnu11 -O2 -o /tmp/render shared/tools/ostrich_clap_render.c \
     -Ithird_party/dpf/distrho/src -ldl -lm
 OSTRICH55_ROMS=/path/to/roms /tmp/render instruments/ostrich-55/plugin/bin/Ostrich55.clap /tmp/out.wav
 ```
 
 A change that should not change the sound (shared code, the build, DPF) is checked by
 rendering before and after with a fresh `XDG_CONFIG_HOME` and comparing the WAVs: they
-must be identical. Ostrich 7765's first notes vary from run to run (seen 13.11.2026, old
-and new builds alike, probably while its ROMs load); put the notes after 3 s for such a
-comparison.
+must be identical. Ostrich 7765's TR-707 with vintage timing is not repeatable: its 2.8 ms
+grid runs free, with a phase each instance takes from its own address, as the unit's
+depends on when it was switched on. For such a comparison switch its timing off
+(`--param 57=0`) or play the TR-505 or TR-626.
 
 ## 5. CI and releases
 

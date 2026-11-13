@@ -75,16 +75,18 @@ would be linked as it was.
 
 ## 5. Checking it
 
-`plugin/tools/ostrich_clap_render.c` loads the CLAP without a host or a display, plays a
-note, presses panel keys, saves and loads state, and writes all six outputs to a WAV:
+`shared/tools/ostrich_clap_render.c` (the monorepo's, for all instruments) loads the CLAP
+without a host or a display, plays a note, presses panel keys, saves and loads state, and
+writes all six outputs to a WAV:
 
 ```sh
-gcc -std=gnu11 -O2 -o ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -I../../third_party/dpf/distrho/src -ldl
-OSTRICH_ROMS=/path/to/roms ./ostrich_clap_render plugin/bin/Ostrich220.clap out.wav
+gcc -std=gnu11 -O2 -o /tmp/render ../../shared/tools/ostrich_clap_render.c \
+    -I../../third_party/dpf/distrho/src -ldl -lm
+OSTRICH_ROMS=/path/to/roms /tmp/render plugin/bin/Ostrich220.clap out.wav
 ```
 
-Its arguments and environment variables are described at the top of the source.
+Its options are described at the top of the source (`--press`, `--load`, `--save`,
+`--settle`, `--midi-out` and `--realtime` among them).
 `OSTRICH_DEBUG=1` makes the plugin print what the machine's display shows after each key.
 
 The core can be null-tested against MAME: `u220_render --no-filter` with the MIDI arrival
@@ -113,7 +115,7 @@ git log --all --name-only --format= | sort -u | grep -iE '\.(bin|rom|syx|ic[0-9]
 | `plugin/ostrich/` | the plugin: DSP (`OstrichPlugin.cpp`), panel (`OstrichUI.cpp`), DAC stage, resampler |
 | `plugin/core/` | the emulation core `U220Core` and the effect models |
 | `plugin/compat/` | the minimal MAME framework the core compiles MAME's devices against |
-| `plugin/tools/` | core build script, `u220_render`, `u220_reverb_run`, `ostrich_clap_render` |
+| `plugin/tools/` | core build script, `u220_render`, `u220_reverb_run` |
 | `third_party/mame/src/mame/roland/roland_u220.cpp` | the MAME driver; `roland_u220_ic25.h` is shared with the core |
 | `tools/` | measurement, A/B and SysEx tools (Python), MAME helper scripts |
 | `analysis/` | what is known about the hardware and the firmware |

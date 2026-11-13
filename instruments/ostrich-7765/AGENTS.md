@@ -51,5 +51,5 @@ analysis/ what is known about the hardware.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%` are
   invisible to the DAW; use `C:\ProgramData`.
 - Test ROMs on the build host: `/home/helge/ostrich7765-work/roms` (`OSTRICH_ROMS` for
-  `plugin/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
+  `shared/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
   in phase 6 of the migration.

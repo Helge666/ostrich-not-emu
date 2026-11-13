@@ -10,7 +10,7 @@ plugin/
   ostrich/   GPL-3.0-or-later.  The plugin (DPF): OstrichPlugin.cpp, OstrichUI.cpp, the
              resampler from the core's rate to the host's, the zip reader, MidiInput
              (the Windows standalone's own MIDI IN, WinMM).
-  tools/     build_core.sh, sc55_render, ostrich_clap_render.
+  tools/     build_core.sh, sc55_render.
   dpf/       DPF, a submodule: our fork Helge666/DPF, branch logan (DPF-LOGAN.md at the repository root).
 ```
 

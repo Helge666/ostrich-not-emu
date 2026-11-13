@@ -23,7 +23,9 @@ for this project. It is the same file in every project; the master copy lives in
 ## Current tag: `logan-2`
 
 Base: DISTRHO/DPF `4238e1c` ("Merge branch 'develop'", 23.10.2025), pugl `5e2621d`.
-DPF `logan-2` = `b9424f1`, pugl `logan-2` = `logan-1` = `24c660a` (pugl did not change).
+DPF `logan-2` = `7fb912d`, pugl `logan-2` = `logan-1` = `560aa1e` (pugl did not change).
+Commit addresses as of the history rewrite of 13.11.2026, which replaced the author
+address in our commits; the files are the same as before.
 
 ### New in `logan-2` (8.11.2026, from Ostrich 7765)
 

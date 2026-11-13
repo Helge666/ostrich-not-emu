@@ -31,17 +31,17 @@ gearmulator carries submodules Ostrich 32 does not need (JUCE, plugin SDKs);
 
 | Path | Pinned to | Notes |
 |---|---|---|
-| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-1` (`467d994`) | upstream tag `2.2.27` plus two commits on branch `ostrich`; only 88emu is built |
-| `third_party/gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`4bd5aeb`) | the commit `2.2.27` pins plus one commit |
-| `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`b9424f1`) | see DPF-LOGAN.md |
+| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-1` (`5ec7238`) | upstream tag `2.2.27` plus two commits on branch `ostrich`; only 88emu is built |
+| `third_party/gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`35ad204`) | the commit `2.2.27` pins plus one commit |
+| `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`7fb912d`) | see DPF-LOGAN.md |
 
 The commits on the `ostrich` branches, each needed only by mingw-w64 (GCC):
 
 | Repository | Commit | Why |
 |---|---|---|
-| dsp56300 | `4bd5aeb` structured exception handling only with MSVC | GCC has no `__try`/`__except`; the block only names a thread for a debugger |
-| gearmulator | `18a6884` `deviceException.cpp` includes `<cstdint>` | it uses `int32_t` without including it |
-| gearmulator | `467d994` dsp56300 from the Ostrich fork | `.gitmodules` and the pointer to the commit above |
+| dsp56300 | `35ad204` structured exception handling only with MSVC | GCC has no `__try`/`__except`; the block only names a thread for a debugger |
+| gearmulator | `59c46df` `deviceException.cpp` includes `<cstdint>` | it uses `int32_t` without including it |
+| gearmulator | `5ec7238` dsp56300 from the Ostrich fork | `.gitmodules` and the pointer to the commit above |
 
 Two more differences need no commit: the header names gearmulator spells as the Windows SDK
 does (`<Windows.h>`, `<shlobj_core.h>`) come from shims in `plugin/tools/mingw`, and

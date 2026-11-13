@@ -11,7 +11,7 @@
 #include "OstrichShared.hpp"
 
 #include "sc55_core.h"
-#include "../../../../shared/plugin/MidiInput.hpp"
+#include "../../../../shared/plugin/StandaloneMidi.hpp"
 #include "../../../../shared/plugin/Resampler.hpp"
 #include "../../../../shared/plugin/FileIO.hpp"
 #include "../../../../shared/plugin/Folders.hpp"
@@ -41,7 +41,6 @@ using namespace ostrich;
 
 std::vector<fs::path> romDirs() { return ostrich::romDirs("OSTRICH55_ROMS", { "Ostrich 55" }); }
 std::vector<fs::path> installDirs() { return ostrich::installDirs("Ostrich 55"); }
-fs::path midiChoiceFile() { return ostrich::standaloneSettingFile("Ostrich 55", "standalone-midi-in.txt"); }
 
 /// The family this build plays.  Nuked-SC55 knows the later models too (mk2, SC-55st, ...);
 /// they need their own panels and the core's other rates, see ROADMAP.md.
@@ -206,17 +205,7 @@ public:
 		for (auto &f : m_keyFreeFrames) f = kKeyGapFrames;     // the first press goes at once
 		loadRoms();
 		setupRate(getSampleRate());
-		if (m_ownMidi)
-		{
-			// The choice of the last run; the first time, every input, so that a keyboard
-			// plays at once.
-			const fs::path f = midiChoiceFile();
-			const std::vector<uint8_t> saved = f.empty() ? std::vector<uint8_t>() : readFile(f, 4096);
-			std::string choice = saved.empty() ? std::string(kMidiAll) : std::string(saved.begin(), saved.end());
-			while (!choice.empty() && (choice.back() == '\n' || choice.back() == '\r'))
-				choice.pop_back();
-			applyMidiIn(choice, false);
-		}
+		m_midi.start();
 	}
 
 	~OstrichPlugin() override
@@ -370,10 +359,7 @@ protected:
 			return String(m_uiSize.c_str());
 		}
 		if (std::strcmp(key, "midiports") == 0)
-		{
-			std::lock_guard<std::mutex> lock(m_statusLock);
-			return String(m_midiPorts.c_str());
-		}
+			return String(m_midi.portsText().c_str());
 		return String();
 	}
 
@@ -411,15 +397,7 @@ protected:
 		}
 		if (std::strcmp(key, "midiin") == 0)
 		{
-			unsigned n = 0;
-			int used = 0;
-			if (!m_ownMidi || std::sscanf(value, "%u %n", &n, &used) < 1 || used == 0)
-				return;
-			const std::string choice = value + used;
-			if (choice == kMidiRescan)
-				rescanMidiIn();
-			else
-				applyMidiIn(choice, true);
+			m_midi.setState(value);
 			return;
 		}
 	}
@@ -452,14 +430,7 @@ protected:
 		{
 			std::memset(outL, 0, sizeof(float) * frames);
 			std::memset(outR, 0, sizeof(float) * frames);
-			// Played while nothing listens: gone, not played all at once later.
-			if (m_ownMidi)
-			{
-				double t;
-				while (m_midiIn.pop(1e300, m_ownData, t) > 0)
-					;
-				m_midiEnd = 0.0;
-			}
+			m_midi.drop();
 			if (lock.owns_lock() && m_core.running())
 				setupRate(m_hostRate);          // a machine of another rate came up
 			publishPanel(frames, lock.owns_lock());
@@ -480,7 +451,7 @@ protected:
 				m_core.midi(kGmReset, sizeof(kGmReset));
 		}
 
-		const uint32_t own = m_ownMidi ? collectOwnMidi(frames) : 0;
+		const uint32_t own = m_midi.collect(frames, m_hostRate);
 
 		// MIDI in at its place in the block, the host's and the standalone's own merged: the
 		// core is rendered up to each event.  The firmware then reads the bytes from its
@@ -491,12 +462,12 @@ protected:
 		{
 			uint32_t frame, size;
 			const uint8_t *data;
-			if (o < own && (i >= midiEventCount || m_own[o].frame < midiEvents[i].frame))
+			if (o < own && (i >= midiEventCount || m_midi.event(o).frame < midiEvents[i].frame))
 			{
-				frame = m_own[o].frame;
-				size = m_own[o].size;
-				data = m_ownData + m_own[o].offset;
-				o ++;
+				const StandaloneMidi::Event e = m_midi.event(o ++);
+				frame = e.frame;
+				size = e.size;
+				data = e.data;
 			}
 			else
 			{
@@ -593,7 +564,7 @@ private:
 
 	void flushStateToUi()
 	{
-		if (!m_statusPending.load() && !m_romSetPending.load() && !m_midiPortsPending.load())
+		if (!m_statusPending.load() && !m_romSetPending.load() && !m_midi.portsPending())
 			return;
 		// Set on other threads too: never wait for it here.
 		std::unique_lock<std::mutex> sl(m_statusLock, std::try_to_lock);
@@ -603,100 +574,7 @@ private:
 			updateStateValue("status", m_status.c_str());
 		if (m_romSetPending.exchange(false))
 			updateStateValue("romset", m_romSet.c_str());
-		if (m_midiPortsPending.exchange(false))
-			updateStateValue("midiports", m_midiPorts.c_str());
-	}
-
-	// ---- the standalone's MIDI IN (MidiInput.hpp) ---------------------------------------
-	//
-	// run() places what came in by its time stamp, one block late: block k plays what came
-	// in during [m_midiEnd - its length, m_midiEnd).  m_midiEnd moves on by the block's
-	// length in audio time, not by the clock: WASAPI calls in bursts (several small blocks
-	// at once, then a pause), and a clock read at each call would pile a burst's notes up.
-	// It never runs ahead of the clock, and it is pulled towards the clock once a second
-	// by the smallest lag seen, so that the two clocks' drift does not add up.  The latency
-	// is then a block, steady, instead of 0 .. 1 block.
-
-	uint32_t collectOwnMidi(uint32_t frames)
-	{
-		if (frames == 0)
-			return 0;
-		const double now = MidiInput::now();
-		const double len = double(frames) / m_hostRate;
-		double end = m_midiEnd + len;
-		if (m_midiEnd == 0.0 || end > now || end < now - 0.25)
-			end = now;                      // the first block, ahead, or after a stall
-		m_midiMinLag = std::min(m_midiMinLag, now - end);
-		m_midiLagSpan += len;
-		if (m_midiLagSpan >= 1.0)
-		{
-			if (m_midiMinLag > 0.0005)
-				end += (m_midiMinLag - 0.0005) * 0.5;
-			m_midiMinLag = 1e9;
-			m_midiLagSpan = 0.0;
-		}
-		m_midiEnd = end;
-		const double start = end - len;
-
-		uint32_t n = 0;
-		size_t used = 0;
-		double t = 0.0;
-		while (n < kOwnMax && used + MidiInput::kMaxMessage <= sizeof(m_ownData))
-		{
-			const size_t size = m_midiIn.pop(end, m_ownData + used, t);
-			if (size == 0)
-				break;
-			const double f = std::floor((t - start) * m_hostRate);
-			m_own[n].frame = f <= 0.0 ? 0 : std::min(uint32_t(f), frames - 1);
-			m_own[n].offset = uint32_t(used);
-			m_own[n].size = uint32_t(size);
-			used += size;
-			n ++;
-		}
-		return n;
-	}
-
-	// The rest, on the thread that sets states (the UI's); run() only reads what came in.
-
-	void applyMidiIn(const std::string &choice, bool save)
-	{
-		m_midiChoice = choice;
-		m_midiProblem = m_midiIn.open(choice);
-		m_midiPortsSeen = MidiInput::ports();
-		if (save)
-		{
-			const fs::path f = midiChoiceFile();
-			if (!f.empty())
-			{
-				std::error_code ec;
-				fs::create_directories(f.parent_path(), ec);
-				writeFile(f, std::vector<uint8_t>(choice.begin(), choice.end()));
-			}
-		}
-		publishMidiPorts();
-	}
-
-	// The panel opens its list: a port that came or went since.  A port that plays is left
-	// open, so that no note-off gets lost.
-	void rescanMidiIn()
-	{
-		if (MidiInput::ports() != m_midiPortsSeen && (!m_midiProblem.empty() || m_midiChoice == kMidiAll))
-			applyMidiIn(m_midiChoice, false);
-		else
-		{
-			m_midiPortsSeen = MidiInput::ports();
-			publishMidiPorts();
-		}
-	}
-
-	void publishMidiPorts()
-	{
-		std::string t = m_midiChoice + kFieldSep + m_midiProblem;
-		for (const std::string &p : m_midiPortsSeen)
-			t += kFieldSep + p;
-		std::lock_guard<std::mutex> lock(m_statusLock);
-		m_midiPorts = t;
-		m_midiPortsPending.store(true);
+		m_midi.takePorts([this](const char *t) { updateStateValue("midiports", t); });
 	}
 
 	void publishPanel(uint32_t frames, bool haveMachine)
@@ -965,19 +843,8 @@ private:
 	bool m_midiSeen = false;        // MIDI in since the last refresh: the MIDI MESSAGE lamp
 	char m_blobHex[sizeof(PanelBlob) * 2 + 1] = {};
 
-	// The Windows standalone's own MIDI IN.  m_midiPorts is under m_statusLock, the rest
-	// belongs to the thread that sets states.
-	const bool m_ownMidi = MidiInput::supported() && std::strstr(getPluginFormatName(), "Standalone") != nullptr;
-	MidiInput m_midiIn;
-	std::string m_midiChoice, m_midiProblem, m_midiPorts;
-	std::vector<std::string> m_midiPortsSeen;
-	std::atomic<bool> m_midiPortsPending { false };
-	// run()'s: the timeline (collectOwnMidi) and what one block took in
-	double m_midiEnd = 0.0, m_midiMinLag = 1e9, m_midiLagSpan = 0.0;
-	static constexpr uint32_t kOwnMax = 512;
-	struct OwnEvent { uint32_t frame, offset, size; };
-	OwnEvent m_own[kOwnMax] = {};
-	uint8_t m_ownData[MidiInput::kMaxMessage * 4] = {};
+	// The Windows standalone's own MIDI IN.
+	StandaloneMidi m_midi { std::strstr(getPluginFormatName(), "Standalone") != nullptr, "Ostrich 55" };
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichPlugin)
 };

@@ -1,0 +1,91 @@
+# ---------------------------------------------------------------------------------------
+# COPYRIGHTED MATERIAL -- never commit, never push.
+#
+# Roland's control ROMs, PCM ROMs and manuals belong to Roland. This repository only says
+# WHERE a user must put their own dumps (roms/README.md); it never carries them, not even
+# for a moment in the history.
+#
+# If you really need to add a binary that matches one of these patterns and is NOT
+# copyrighted (a test fixture you generated yourself), use `git add -f` and say why in
+# the commit message.
+# ---------------------------------------------------------------------------------------
+
+# Control and PCM ROMs, in every naming scheme seen so far
+#   Munt:   MT32_CONTROL.ROM, MT32_PCM.ROM, CM32L_CONTROL.ROM, CM32L_PCM.ROM
+#   MAME:   mt32_1.0.7.ic26.bin, r15449121.ic37.bin, blue_ridge__mt32a.bin and the like
+*.bin
+*.BIN
+*.Bin
+*.rom
+*.ROM
+*.Rom
+*.ic[0-9]*
+*.IC[0-9]*
+*.eprom
+*.hex
+*.mot
+*.s19
+
+# ROM sets as zips (MAME and others)
+*.zip
+*.ZIP
+*.7z
+*.rar
+*.chd
+
+# The roms/ folder holds only its README
+roms/*
+!roms/README.md
+
+# Renders and recordings of the factory sounds (derived from the ROMs)
+*.wav
+*.WAV
+*.flac
+*.aif
+*.aiff
+*.mp3
+*.ogg
+*.raw
+*.pcm
+
+# Recordings and measurements of the hardware stay outside the repository
+recordings/
+captures/
+
+# SysEx dumps and MIDI files of other people's songs and games
+*.syx
+*.SYX
+*.mid
+*.MID
+
+# Roland manuals, service notes and schematics
+reference/*
+!reference/README.md
+*.pdf
+*.PDF
+
+# Photos of real hardware (copyright of whoever took them)
+*.jpg
+*.jpeg
+*.JPG
+*.webp
+
+# ---------------------------------------------------------------------------------------
+# Build output and local clutter
+# ---------------------------------------------------------------------------------------
+plugin/bin/
+plugin/build/
+plugin/build-core/
+plugin/build-core-*/
+plugin/ostrich/bin-win/
+plugin/ostrich/build-win/
+plugin/tools/ostrich_clap_render
+__pycache__/
+*.pyc
+*.o
+*.d
+.DS_Store
+.claude/
+.claude.json
+*.pem
+error.log

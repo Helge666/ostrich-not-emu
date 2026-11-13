@@ -1,0 +1,9 @@
+[submodule "plugin/dpf"]
+	path = plugin/dpf
+	url = https://github.com/Helge666/DPF.git
+	branch = logan
+[submodule "gearmulator"]
+	path = gearmulator
+	url = https://github.com/Helge666/gearmulator.git
+	branch = ostrich
+	shallow = true

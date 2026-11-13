@@ -71,7 +71,7 @@ def welch(x, sr, nfft=8192):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('-o', '--out', default='analysis/deemphasis.pdf')
-    ap.add_argument('--trace', default='mame/error.log')
+    ap.add_argument('--trace', default='../../third_party/mame/error.log')
     args = ap.parse_args()
 
     banks = load_roms(); vox = trace_voices(args.trace)

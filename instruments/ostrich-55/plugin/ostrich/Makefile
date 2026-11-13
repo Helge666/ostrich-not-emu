@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Ostrich 55, the SC-55 plugin.  DPF is plugin/dpf, our fork Helge666/DPF; the core is
+# Ostrich 55, the SC-55 plugin.  DPF is third_party/dpf, our fork Helge666/DPF; the core is
 # Nuked-SC55's backend plus plugin/core, built by ../tools/build_core.sh into a static
 # library.
 #
@@ -13,7 +13,11 @@ NAME = Ostrich55
 FILES_DSP = OstrichPlugin.cpp MidiInput.cpp
 FILES_UI  = OstrichUI.cpp
 
-include ../dpf/Makefile.plugins.mk
+# DPF is the monorepo's shared submodule third_party/dpf.  Build objects and binaries stay
+# in this instrument's plugin/ folder (DPF would otherwise put them next to third_party/).
+DPF_BUILD_DIR  ?= $(abspath ..)/build/$(NAME)
+DPF_TARGET_DIR ?= $(abspath ..)/bin
+include ../../../../third_party/dpf/Makefile.plugins.mk
 
 CORE_LIB ?= ../build-core/libsc55core.a
 

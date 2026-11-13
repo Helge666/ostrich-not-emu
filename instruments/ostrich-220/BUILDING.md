@@ -1,5 +1,14 @@
 # Building Ostrich 220
 
+> **Since 13.11.2026 this instrument lives in the monorepo Ostrich != Emu**
+> (`instruments/<name>/`). Clone the monorepo, not the old repository. The submodules are
+> shared and live at the repository root: `third_party/dpf` (all instruments),
+> `third_party/mame` (220), `third_party/nuked-sc55` (55), `third_party/gearmulator` (32).
+> Fetch only what this instrument needs, from the repository root, e.g.
+> `git submodule update --init --recursive third_party/dpf`. Commands below run in this
+> instrument's folder unless they say otherwise. The shared BUILDING.md replaces this one
+> in phase 4 of MIGRATION.md.
+
 Everything builds on Linux (developed on Ubuntu 24.04). Windows binaries are cross-compiled
 there with mingw-w64.
 
@@ -26,7 +35,7 @@ opinions about `std::mutex`.
 git clone --recurse-submodules https://github.com/Helge666/ostrich220.git
 ```
 
-All three levels are needed: `mame`, `plugin/dpf`, and DPF's own `dgl/src/pugl-upstream`.
+All three levels are needed: `mame`, `third_party/dpf`, and DPF's own `dgl/src/pugl-upstream`.
 After a clone without `--recurse-submodules`, or after a pull that moves a submodule:
 
 ```sh
@@ -56,10 +65,10 @@ standalone uses DPF's RtAudio backend on Windows and JACK on Linux.
 
 ## 4. DPF
 
-`plugin/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
+`third_party/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
 `logan`; DPF's own pugl submodule points at [Helge666/pugl](https://github.com/Helge666/pugl),
 branch `logan`. The changes we need are commits there, not patches here, and the submodule
-is pinned to a tag (`logan-2`). Nothing is applied at build time: `plugin/dpf` stays
+is pinned to a tag (`logan-2`). Nothing is applied at build time: `third_party/dpf` stays
 clean, and `git submodule status --recursive` shows a leading space on its lines as well.
 
 What the fork adds to DISTRHO/DPF, as far as Ostrich uses it:
@@ -84,8 +93,8 @@ The fork also carries changes from Drumship One that Ostrich does not use:
 units and CLAP modules.
 
 A change to DPF is a commit on the fork's `logan` branch and a new tag; then move the pin
-here (`git -C plugin/dpf fetch --tags`, `git -C plugin/dpf checkout logan-N`) and commit the
-new pointer. After the pin moves, build DGL from clean (`rm -rf plugin/dpf/build*`): its
+here (`git -C third_party/dpf fetch --tags`, `git -C third_party/dpf checkout logan-N`) and commit the
+new pointer. After the pin moves, build DGL from clean (`rm -rf third_party/dpf/build*`): its
 build does not notice a change in a file that `pugl.cpp` includes, and the old library
 would be linked as it was.
 
@@ -96,7 +105,7 @@ note, presses panel keys, saves and loads state, and writes all six outputs to a
 
 ```sh
 gcc -std=gnu11 -O2 -o ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -Iplugin/dpf/distrho/src -ldl
+    -I../../third_party/dpf/distrho/src -ldl
 OSTRICH_ROMS=/path/to/roms ./ostrich_clap_render plugin/bin/Ostrich220.clap out.wav
 ```
 
@@ -113,7 +122,7 @@ A clone can fetch only pushed commits. Check that both submodule pins are on the
 
 ```sh
 git -C mame ls-remote origin | grep "$(git rev-parse :mame)"
-git -C plugin/dpf ls-remote origin | grep "$(git rev-parse :plugin/dpf)"
+git -C third_party/dpf ls-remote origin | grep "$(git rev-parse :third_party/dpf)"
 ```
 
 And that the history holds no ROM, wave, card or manual file:

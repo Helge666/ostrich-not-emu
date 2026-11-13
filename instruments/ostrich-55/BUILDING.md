@@ -1,5 +1,14 @@
 # Building Ostrich 55
 
+> **Since 13.11.2026 this instrument lives in the monorepo Ostrich != Emu**
+> (`instruments/<name>/`). Clone the monorepo, not the old repository. The submodules are
+> shared and live at the repository root: `third_party/dpf` (all instruments),
+> `third_party/mame` (220), `third_party/nuked-sc55` (55), `third_party/gearmulator` (32).
+> Fetch only what this instrument needs, from the repository root, e.g.
+> `git submodule update --init --recursive third_party/dpf`. Commands below run in this
+> instrument's folder unless they say otherwise. The shared BUILDING.md replaces this one
+> in phase 4 of MIGRATION.md.
+
 Everything builds on Linux (developed on Ubuntu 24.04). Windows binaries are cross-compiled
 there with mingw-w64, and so is the Windows installer.
 
@@ -24,7 +33,7 @@ DLL. Objects from the two models must not be mixed.
 git clone --recurse-submodules https://github.com/Helge666/ostrich55.git
 ```
 
-Needed: `nuked-sc55`, `plugin/dpf`, and DPF's own `dgl/src/pugl-upstream`. After a clone
+Needed: `nuked-sc55`, `third_party/dpf`, and DPF's own `dgl/src/pugl-upstream`. After a clone
 without `--recurse-submodules`, or after a pull that moves a submodule:
 
 ```sh
@@ -71,8 +80,8 @@ copy ROM images there without admin rights. The uninstaller leaves that folder a
 
 ## 5. DPF
 
-`plugin/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
-`logan`, pinned to a tag (`logan-2`). Nothing is patched at build time: `plugin/dpf` stays
+`third_party/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
+`logan`, pinned to a tag (`logan-2`). Nothing is patched at build time: `third_party/dpf` stays
 clean. What the fork is and how it changes: [DPF-LOGAN.md](DPF-LOGAN.md).
 
 ## 6. Checking it
@@ -93,7 +102,7 @@ note, presses panel keys, saves the state and writes the output to a WAV:
 
 ```sh
 gcc -std=gnu11 -O2 -o ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -Iplugin/dpf/distrho/src -ldl
+    -I../../third_party/dpf/distrho/src -ldl
 OSTRICH55_ROMS=/path/to/roms ./ostrich_clap_render plugin/bin/Ostrich55.clap out.wav
 ```
 
@@ -106,7 +115,7 @@ A clone can fetch only pushed commits. Check that both submodule pins are on the
 
 ```sh
 git -C nuked-sc55 ls-remote origin | grep "$(git rev-parse :nuked-sc55)"
-git -C plugin/dpf ls-remote origin | grep "$(git rev-parse :plugin/dpf)"
+git -C third_party/dpf ls-remote origin | grep "$(git rev-parse :third_party/dpf)"
 ```
 
 The Nuked-SC55 pin must be a commit that jcmoyer's fork has too, or one pushed to

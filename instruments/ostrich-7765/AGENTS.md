@@ -44,6 +44,6 @@ analysis/ what is known about the hardware.
 - The version is in `plugin/ostrich/Version.hpp`, nowhere else; CI refuses a `v*` tag that
   does not match it.
 - DPF is our fork Helge666/DPF (branch `logan`, pinned to a tag); nothing is patched at
-  build time and `plugin/dpf` stays clean. Changes to DPF are commits in the fork.
+  build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%` are
   invisible to the DAW; use `C:\ProgramData`.

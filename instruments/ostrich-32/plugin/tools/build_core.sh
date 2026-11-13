@@ -13,7 +13,8 @@
 # on Linux -lpthread -ldl.
 set -u
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"
-GM="$HERE/gearmulator"
+ROOT="$(cd "$HERE/../.." && pwd)"   # the monorepo; submodules are in $ROOT/third_party
+GM="$ROOT/third_party/gearmulator"
 CORE="$HERE/plugin/core"
 
 CXX="${CXX:-g++}"
@@ -33,7 +34,7 @@ case "$MACHINE" in *mingw*|*windows*) CROSS_WINDOWS=1 ;; *) CROSS_WINDOWS=0 ;; e
 SUBS=(source/cpu/dsp56300 source/cpu/mc68k source/3rdparty/cpp-terminal source/3rdparty/RmlUi
       source/3rdparty/freetype source/3rdparty/portmidi-latest source/3rdparty/lunasvg)
 if [ ! -f "$GM/CMakeLists.txt" ]; then
-	echo "  gearmulator/ is empty: git submodule update --init gearmulator"; exit 1
+	echo "  third_party/gearmulator/ is empty: git -C \"$ROOT\" submodule update --init --depth 1 third_party/gearmulator"; exit 1
 fi
 for s in "${SUBS[@]}"; do
 	if [ ! -e "$GM/$s/.git" ]; then

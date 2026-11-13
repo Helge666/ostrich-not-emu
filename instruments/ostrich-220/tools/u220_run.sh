@@ -13,8 +13,9 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
-mame="$here/mame"
-work="$(dirname "$here")"
+root="$(cd "$here/../.." && pwd)"   # the monorepo
+mame="$root/third_party/mame"
+work="$(dirname "$root")"   # Ostrich-not-Emu: ostrich-run, ostrich-mameroms
 run="$work/ostrich-run"
 mkdir -p "$run"
 secs="${1:-10}"; shift || true

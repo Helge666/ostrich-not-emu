@@ -42,7 +42,7 @@ what is open.
 - The ROM images are recognised by SHA-256, never by name; the wave ROMs are descrambled
   by the core, not on disk.
 - DPF is our fork Helge666/DPF (branch `logan`, pinned to a tag); nothing is patched at
-  build time and `plugin/dpf` stays clean. Changes to DPF are commits in the fork
+  build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork
   (DPF-LOGAN.md).
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%`
   are invisible to the DAW; the ROM folder is `C:\ProgramData\Ostrich 55\roms`.

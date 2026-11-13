@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Ostrich 7765.  DPF is plugin/dpf, our fork Helge666/DPF.
+# Ostrich 7765.  DPF is third_party/dpf, our fork Helge666/DPF.
 #
 #   make          Linux: VST3, CLAP, standalone (JACK)   -> plugin/bin/
 #   make win      Windows, cross-compiled with mingw-w64: VST3, CLAP, standalone
@@ -13,7 +13,11 @@ FILES_DSP = OstrichPlugin.cpp engine/Tr707.cpp engine/PcmMachine.cpp engine/Soun
             engine/Roms.cpp
 FILES_UI  = OstrichUI.cpp
 
-include ../dpf/Makefile.plugins.mk
+# DPF is the monorepo's shared submodule third_party/dpf.  Build objects and binaries stay
+# in this instrument's plugin/ folder (DPF would otherwise put them next to third_party/).
+DPF_BUILD_DIR  ?= $(abspath ..)/build/$(NAME)
+DPF_TARGET_DIR ?= $(abspath ..)/bin
+include ../../../../third_party/dpf/Makefile.plugins.mk
 
 BUILD_CXX_FLAGS := -I. $(BUILD_CXX_FLAGS) -std=c++20
 

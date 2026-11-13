@@ -1,5 +1,14 @@
 # Building Ostrich 32
 
+> **Since 13.11.2026 this instrument lives in the monorepo Ostrich != Emu**
+> (`instruments/<name>/`). Clone the monorepo, not the old repository. The submodules are
+> shared and live at the repository root: `third_party/dpf` (all instruments),
+> `third_party/mame` (220), `third_party/nuked-sc55` (55), `third_party/gearmulator` (32).
+> Fetch only what this instrument needs, from the repository root, e.g.
+> `git submodule update --init --recursive third_party/dpf`. Commands below run in this
+> instrument's folder unless they say otherwise. The shared BUILDING.md replaces this one
+> in phase 4 of MIGRATION.md.
+
 The core, its test tool and the plugin (VST3, CLAP, standalone) build on Linux, natively
 and cross-compiled for Windows. After Ostrich 55's BUILDING.md.
 
@@ -13,7 +22,7 @@ Ostriches.
 ```bash
 git clone https://github.com/Helge666/ostrich32.git
 cd ostrich32
-git submodule update --init plugin/dpf
+git submodule update --init third_party/dpf
 git submodule update --init --depth 1 gearmulator
 ```
 
@@ -22,7 +31,7 @@ Do not clone it with `--recurse-submodules`; `plugin/tools/build_core.sh` fetche
 of its submodules the build needs, as shallow clones (about 660 MB in all).
 
 On Windows with `core.autocrlf=true`, set `core.autocrlf false` in the repository and in
-`plugin/dpf` before the submodules are checked out (DPF-LOGAN.md); the Make build needs LF.
+`third_party/dpf` before the submodules are checked out (DPF-LOGAN.md); the Make build needs LF.
 
 `git submodule status` must show a leading space on both lines; `+` or `m` means a
 submodule is not at its pinned state.
@@ -33,7 +42,7 @@ submodule is not at its pinned state.
 |---|---|---|
 | `gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-1` (`467d994`) | upstream tag `2.2.27` plus two commits on branch `ostrich`; only 88emu is built |
 | `gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`4bd5aeb`) | the commit `2.2.27` pins plus one commit |
-| `plugin/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`b9424f1`) | see DPF-LOGAN.md |
+| `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`b9424f1`) | see DPF-LOGAN.md |
 
 The commits on the `ostrich` branches, each needed only by mingw-w64 (GCC):
 
@@ -113,7 +122,7 @@ note, presses panel switches, saves and prints the state and writes the output t
 
 ```bash
 gcc -std=gnu11 -O2 -o plugin/tools/ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -Iplugin/dpf/distrho/src -ldl
+    -I../../third_party/dpf/distrho/src -ldl
 OSTRICH32_ROMS=~/coding/ostrich32-roms plugin/tools/ostrich_clap_render plugin/bin/Ostrich32.clap /tmp/out.wav
 ```
 

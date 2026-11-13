@@ -10,7 +10,8 @@
 #   SC55_CORE_BUILD    output folder, default plugin/build-core
 set -u
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"
-NUKED="$HERE/nuked-sc55"
+ROOT="$(cd "$HERE/../.." && pwd)"   # the monorepo; submodules are in $ROOT/third_party
+NUKED="$ROOT/third_party/nuked-sc55"
 BACK="$NUKED/src/backend"
 
 CXX="${CXX:-g++}"

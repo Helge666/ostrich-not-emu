@@ -135,7 +135,7 @@ def main():
     if args.log:
         cmd.append('-log')
         try:
-            os.remove(os.path.join(HERE, 'mame', 'error.log'))
+            os.remove(os.path.join(HERE, '..', '..', 'third_party', 'mame', 'error.log'))
         except OSError:
             pass
     cmd += args.mame_arg
@@ -153,7 +153,7 @@ def main():
             open(os.path.join(out_dir, 'trials.csv'), 'w').write(f.read())
 
     if args.log:
-        src = os.path.join(HERE, 'mame', 'error.log')
+        src = os.path.join(HERE, '..', '..', 'third_party', 'mame', 'error.log')
         if os.path.exists(src):
             os.replace(src, os.path.join(out_dir, 'error.log'))
             print("kept the MAME log as %s/error.log" % out_dir)

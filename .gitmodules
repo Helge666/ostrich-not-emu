@@ -1,0 +1,22 @@
+# Shared by all instruments: our DPF fork, as for all LOGAN plugins (DPF-LOGAN.md).
+[submodule "third_party/dpf"]
+	path = third_party/dpf
+	url = https://github.com/Helge666/DPF.git
+	branch = logan
+# Ostrich 220: MAME's U-220 devices (fork of eliggett/mame).
+[submodule "third_party/mame"]
+	path = third_party/mame
+	url = https://github.com/Helge666/mame.git
+	branch = ostrich
+# Ostrich 55: Nuked-SC55's backend (fork of jcmoyer/Nuked-SC55).
+[submodule "third_party/nuked-sc55"]
+	path = third_party/nuked-sc55
+	url = https://github.com/Helge666/Nuked-SC55.git
+	branch = ostrich
+# Ostrich 32: gearmulator's 88emu. Large: clone shallow, without --recursive; the
+# build script fetches the few nested submodules it needs.
+[submodule "third_party/gearmulator"]
+	path = third_party/gearmulator
+	url = https://github.com/Helge666/gearmulator.git
+	branch = ostrich
+	shallow = true

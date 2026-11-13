@@ -9,11 +9,11 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 | SHA-224/256 (RFC 6234) | `nuked-sc55/src/backend/sha/`, used through Nuked-SC55 to recognise the ROM images | BSD-3-Clause (`sha.h`) | IETF Trust and the authors of RFC 6234 |
 | Resampler | `plugin/ostrich/Resampler.hpp`, from emu110 / Voltaire 110 by way of Ostrich 220 | GPL-3.0-or-later | Elliott H. Liggett |
 | Ostrich 220 | the plugin's structure, the ROM setup, `ZipReader.hpp`, `ostrich_clap_render.c` | GPL-3.0-or-later | Helge Thorsten Kautz and contributors |
-| DPF | `plugin/dpf/` (submodule) | ISC | Filipe Coelho |
-| pugl | `plugin/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
-| NanoVG | `plugin/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
-| stb_truetype, stb_image | `plugin/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
-| DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`plugin/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
+| DPF | `third_party/dpf/` (submodule) | ISC | Filipe Coelho |
+| pugl | `third_party/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
+| NanoVG | `third_party/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
+| stb_truetype, stb_image | `third_party/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
+| DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`third_party/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
 | RtAudio | the Windows standalone's audio, through DPF | MIT-style (RtAudio licence) | Gary P. Scavone |
 | RtMidi | built into the standalone through DPF (Ostrich 55 opens its MIDI IN itself) | MIT-style (RtMidi licence) | Gary P. Scavone |
 

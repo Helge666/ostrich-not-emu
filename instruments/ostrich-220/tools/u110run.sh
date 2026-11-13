@@ -19,6 +19,7 @@
 
 set -u
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
+MAME="$(cd "$HERE/../.." && pwd)/third_party/mame"
 PATCHNO=1; SECS=20; MIDI=""; WAV=""; NV="$(mktemp -d)"; CFG="$(mktemp -d)"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -47,7 +48,7 @@ else
 fi
 # Say plainly which mode this run is in.  The driver announces it too, but check the
 # persistent config as well: running MAME by hand (without this script) picks that up.
-PERSIST="$HERE/mame/cfg/u110.cfg"
+PERSIST="$MAME/cfg/u110.cfg"
 if [ -f "$PERSIST" ] && grep -qE '(AUTOTEST|BOOTKEYS)"[^/]*value="[^0]' "$PERSIST"; then
   echo "u110run: WARNING - $PERSIST has a service test enabled:" >&2
   grep -E '(AUTOTEST|BOOTKEYS)' "$PERSIST" | sed 's/^/           /' >&2
@@ -57,9 +58,9 @@ fi
 # `make SUBTARGET=roland` links mame/roland; u110run.sh runs mame/u110, which is a COPY.
 # Forgetting to refresh it means a rebuild silently has no effect and the render measures
 # the old code -- which has happened.  Refresh it here instead of warning about it.
-if [ -x "$HERE/mame/roland" ] && [ "$HERE/mame/roland" -nt "$HERE/mame/u110" ]; then
+if [ -x "$MAME/roland" ] && [ "$MAME/roland" -nt "$MAME/u110" ]; then
   echo "u110run: mame/roland is newer than mame/u110 - refreshing the copy." >&2
-  if ! cp "$HERE/mame/roland" "$HERE/mame/u110"; then
+  if ! cp "$MAME/roland" "$MAME/u110"; then
     # "Text file busy" means another MAME still has the copy open -- a run that hung, or
     # one left behind by a debugger session.  Carrying on would measure the OLD build,
     # which is the exact trap this refresh exists to close, so stop instead.
@@ -71,7 +72,7 @@ if [ -x "$HERE/mame/roland" ] && [ "$HERE/mame/roland" -nt "$HERE/mame/u110" ]; 
 fi
 printf "u110run: patch P-%02d, %ss%s\n" "$PATCHNO" "$SECS" "${MIDI:+, midi $(basename "$MIDI")}"
 
-cd "$HERE/mame"
+cd "$MAME"
 SDL_VIDEODRIVER=dummy U110_PATCH="$PATCHNO" ./u110 "${ARGS[@]}" "$@"
 rc=$?
 rm -rf "$NV" "$CFG"

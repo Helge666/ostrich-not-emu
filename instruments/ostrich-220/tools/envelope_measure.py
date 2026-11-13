@@ -256,7 +256,7 @@ def characterise(t, db, tf=None, dbf=None, hw_fine=None, floor_db=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--trace', default=os.path.join(ROOT, 'mame/error.log'))
+    ap.add_argument('--trace', default=os.path.join(ROOT, '..', '..', 'third_party', 'mame/error.log'))
     ap.add_argument('--capture', default=os.path.join(ROOT, 'listen/hardware/2/u110_capture.wav'))
     ap.add_argument('--emu', default=None, help='emulator render of the same events')
     ap.add_argument('--emu-offset', type=float, default=11.6,

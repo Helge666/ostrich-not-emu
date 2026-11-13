@@ -7,11 +7,11 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 |---|---|---|---|
 | emu110 / Voltaire 110 | the base of this project; `plugin/compat`, the resampler, the U-110 analyses and tools | GPL-3.0-or-later (plugin, tools); BSD-3-Clause (core, MAME devices) | Elliott H. Liggett |
 | MAME | `mame/` (submodule): the MCS-96 CPU, the Roland LP PCM chip, the drivers | BSD-3-Clause for the devices and drivers built here; MAME as a whole GPL-2.0-or-later | the MAME contributors (Olivier Galibert, Valley Bell, Elliott H. Liggett and others) |
-| DPF | `plugin/dpf/` (submodule) | ISC | Filipe Coelho |
-| pugl | `plugin/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
-| NanoVG | `plugin/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
-| stb_truetype, stb_image | `plugin/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
-| DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`plugin/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
+| DPF | `third_party/dpf/` (submodule) | ISC | Filipe Coelho |
+| pugl | `third_party/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
+| NanoVG | `third_party/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
+| stb_truetype, stb_image | `third_party/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
+| DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`third_party/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
 | RtAudio | the Windows standalone's audio, through DPF | MIT-style (RtAudio licence) | Gary P. Scavone |
 | RtMidi | built into the standalone through DPF | MIT-style (RtMidi licence) | Gary P. Scavone |
 

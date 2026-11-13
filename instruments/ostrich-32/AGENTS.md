@@ -62,7 +62,7 @@ BUILDING.md how to build it, ROADMAP.md what is open.
   up to each one before handing the message over (88emu takes it with the next frame).
 - The M-9 firmware boots with master volume 0 (seen 12.11.2026); not a bug of ours.
 - DPF is our fork Helge666/DPF (branch `logan`, pinned to a tag); nothing is patched at
-  build time and `plugin/dpf` stays clean. Changes to DPF are commits in the fork
+  build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork
   (DPF-LOGAN.md).
 - The version is in `plugin/ostrich/Version.hpp`, nowhere else; CI will refuse a `v*` tag
   that does not match it.

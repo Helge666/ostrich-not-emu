@@ -164,7 +164,7 @@ Not done yet; to be settled separately. The idea, agreed in principle on 29.10.2
 | Project | Submodule path | Build | Tag |
 |---|---|---|---|
 | Drumship One | `dpf` | CMake | `logan-1` |
-| Ostrich 220 | `plugin/dpf` | Make | `logan-2` |
-| Ostrich 55 | `plugin/dpf` | Make | `logan-2` |
-| Ostrich 7765 | `plugin/dpf` | Make | `logan-2` |
-| Ostrich 32 | `plugin/dpf` | Make | `logan-2` |
+| Ostrich 220 | `third_party/dpf` | Make | `logan-2` |
+| Ostrich 55 | `third_party/dpf` | Make | `logan-2` |
+| Ostrich 7765 | `third_party/dpf` | Make | `logan-2` |
+| Ostrich 32 | `third_party/dpf` | Make | `logan-2` |

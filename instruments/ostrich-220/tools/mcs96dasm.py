@@ -17,7 +17,7 @@ import argparse, os, re, sys
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROM = os.path.join(HERE, 'roms', 'roland_u110_pgm_(15179960).bin')
-TBL = os.path.join(HERE, 'mame', 'build', 'generated', 'emu', 'cpu', 'mcs96', 'i8x9xd.hxx')
+TBL = os.path.join(HERE, '..', '..', 'third_party', 'mame', 'build', 'generated', 'emu', 'cpu', 'mcs96', 'i8x9xd.hxx')
 
 # The 8x9x names MAME gives the low registers (mcs96d.cpp / i8x9xd.cpp).
 R8 = {0x00: ('0', '0'), 0x02: ('ad_command', 'ad_result_lo'), 0x03: ('hsi_mode', 'ad_result_hi'),

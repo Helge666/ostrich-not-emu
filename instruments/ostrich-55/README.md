@@ -118,7 +118,7 @@ Submodules:
 | Path | Source | What for |
 |---|---|---|
 | `nuked-sc55/` | [Helge666/Nuked-SC55](https://github.com/Helge666/Nuked-SC55), a fork of [jcmoyer/Nuked-SC55](https://github.com/jcmoyer/Nuked-SC55), itself a fork of [nukeykt/Nuked-SC55](https://github.com/nukeykt/Nuked-SC55) | the emulation (its backend, unmodified) |
-| `plugin/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF), [DPF-LOGAN.md](DPF-LOGAN.md)) | plugin framework |
+| `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF), [DPF-LOGAN.md](DPF-LOGAN.md)) | plugin framework |
 
 ## Licences
 

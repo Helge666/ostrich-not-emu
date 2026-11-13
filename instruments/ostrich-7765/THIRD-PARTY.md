@@ -5,11 +5,11 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 
 | Component | Where | Licence | Copyright |
 |---|---|---|---|
-| DPF | `plugin/dpf/` (submodule) | ISC | Filipe Coelho |
-| pugl | `plugin/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
-| NanoVG | `plugin/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
-| stb_truetype, stb_image | `plugin/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
-| DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`plugin/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
+| DPF | `third_party/dpf/` (submodule) | ISC | Filipe Coelho |
+| pugl | `third_party/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
+| NanoVG | `third_party/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |
+| stb_truetype, stb_image | `third_party/dpf/dgl/src/nanovg` | public domain / MIT | Sean Barrett |
+| DejaVu Sans | the panel's font, built into DGL | Bitstream Vera / DejaVu licence (`third_party/dpf/dgl/src/resources/LICENSE-DejaVuSans.ttf.txt`) | Bitstream, DejaVu authors |
 | RtAudio | the Windows standalone's audio, through DPF | MIT-style (RtAudio licence) | Gary P. Scavone |
 | RtMidi | built into the standalone through DPF | MIT-style (RtMidi licence) | Gary P. Scavone |
 | MAME's TR-707 sound board (`src/mame/roland/roland_tr707.cpp`), ported to C++ | `plugin/ostrich/engine/Tr707.cpp`, `Analog.hpp` | BSD-3-Clause (`plugin/ostrich/engine/LICENSE-MAME-BSD3.txt`) | AJR, m1macrophage |

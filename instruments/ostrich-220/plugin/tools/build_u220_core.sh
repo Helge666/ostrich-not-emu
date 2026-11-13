@@ -7,7 +7,8 @@
 # object directories per target); this is that script with the U-220's file list.
 set -u
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"
-MAME="$HERE/mame"
+ROOT="$(cd "$HERE/../.." && pwd)"   # the monorepo; submodules are in $ROOT/third_party
+MAME="$ROOT/third_party/mame"
 
 CXX="${CXX:-g++}"
 AR="${AR:-ar}"

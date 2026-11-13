@@ -116,7 +116,7 @@ def proof_sheet(rom, path, scale=4):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--out', default=os.path.join(HERE, 'mame/roms/u110/u110_lcd_cgrom.bin'))
+    ap.add_argument('--out', default=os.path.join(HERE, '..', '..', 'third_party', 'mame/roms/u110/u110_lcd_cgrom.bin'))
     ap.add_argument('--proof', default=None, help='write a PNG proof sheet here')
     ap.add_argument('--header', default=None,
                     help='also write the table as a C header for the plugin UI')

@@ -1,5 +1,14 @@
 # Building Ostrich 7765
 
+> **Since 13.11.2026 this instrument lives in the monorepo Ostrich != Emu**
+> (`instruments/<name>/`). Clone the monorepo, not the old repository. The submodules are
+> shared and live at the repository root: `third_party/dpf` (all instruments),
+> `third_party/mame` (220), `third_party/nuked-sc55` (55), `third_party/gearmulator` (32).
+> Fetch only what this instrument needs, from the repository root, e.g.
+> `git submodule update --init --recursive third_party/dpf`. Commands below run in this
+> instrument's folder unless they say otherwise. The shared BUILDING.md replaces this one
+> in phase 4 of MIGRATION.md.
+
 Everything builds on Linux (developed on Ubuntu 24.04). Windows binaries are cross-compiled
 there with mingw-w64.
 
@@ -21,7 +30,7 @@ runtime DLL. Objects from the two models must not be mixed.
 git clone --recurse-submodules https://github.com/Helge666/ostrich7765.git
 ```
 
-Two levels are needed: `plugin/dpf` and DPF's own `dgl/src/pugl-upstream`. After a clone
+Two levels are needed: `third_party/dpf` and DPF's own `dgl/src/pugl-upstream`. After a clone
 without `--recurse-submodules`, or after a pull that moves a submodule:
 
 ```sh
@@ -46,7 +55,7 @@ the state and writes the outputs to a WAV:
 
 ```sh
 gcc -std=gnu11 -O2 -o plugin/tools/ostrich_clap_render plugin/tools/ostrich_clap_render.c \
-    -Iplugin/dpf/distrho/src -ldl
+    -I../../third_party/dpf/distrho/src -ldl
 plugin/tools/ostrich_clap_render plugin/bin/Ostrich7765.clap /tmp/out.wav
 ```
 
@@ -69,10 +78,10 @@ ROMs. Both are described at their top.
 
 ## 4. DPF
 
-`plugin/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
+`third_party/dpf` is our fork of DPF, [Helge666/DPF](https://github.com/Helge666/DPF), branch
 `logan`, pinned to a tag (`logan-1`, ...); DPF's own pugl submodule points at
 [Helge666/pugl](https://github.com/Helge666/pugl). The changes we need are commits there,
-not patches here: `plugin/dpf` stays clean. What the fork adds is listed in Ostrich 220's
+not patches here: `third_party/dpf` stays clean. What the fork adds is listed in Ostrich 220's
 BUILDING.md; Ostrich 7765 relies on these:
 
 | Change | What it does |

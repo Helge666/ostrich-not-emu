@@ -1,43 +1,21 @@
 # Building Ostrich 7765
 
-> **Since 13.11.2026 this instrument lives in the monorepo Ostrich != Emu**
-> (`instruments/<name>/`). Clone the monorepo, not the old repository. The submodules are
-> shared and live at the repository root: `third_party/dpf` (all instruments),
-> `third_party/mame` (220), `third_party/nuked-sc55` (55), `third_party/gearmulator` (32).
-> Fetch only what this instrument needs, from the repository root, e.g.
-> `git submodule update --init --recursive third_party/dpf`. Commands below run in this
-> instrument's folder unless they say otherwise. The shared BUILDING.md replaces this one
-> in phase 4 of MIGRATION.md.
+> Part of the monorepo Ostrich != Emu. Packages, cloning, the submodules (shared, in
+> `third_party/` at the repository root), building all instruments, installing and
+> checking renders: [the root BUILDING.md](../../BUILDING.md). This file adds what is
+> particular to this instrument; its commands run in this folder unless they say otherwise.
 
 Everything builds on Linux (developed on Ubuntu 24.04). Windows binaries are cross-compiled
 there with mingw-w64.
 
 ## 1. Packages
 
-```sh
-sudo apt-get install --no-install-recommends build-essential git pkg-config ccache \
-    libjack-jackd2-dev libgl1-mesa-dev libx11-dev libxext-dev libxcursor-dev \
-    libcairo2-dev libdbus-1-dev g++-mingw-w64-x86-64
-```
-
-`g++-mingw-w64-x86-64` brings two thread models, chosen with `update-alternatives`. Builds
-here and in CI use **win32** (the default on Ubuntu 24.04): the binaries then need no mingw
-runtime DLL. Objects from the two models must not be mixed.
+See the root BUILDING.md, section 1.
 
 ## 2. Clone
 
-```sh
-git clone --recurse-submodules https://github.com/Helge666/ostrich7765.git
-```
-
-Two levels are needed: `third_party/dpf` and DPF's own `dgl/src/pugl-upstream`. After a clone
-without `--recurse-submodules`, or after a pull that moves a submodule:
-
-```sh
-git submodule update --init --recursive
-```
-
-`git submodule status --recursive` shows a leading space on every line when all is in place.
+See the root BUILDING.md, section 2. This instrument needs `third_party/dpf` (with its pugl),
+nothing else.
 
 ## 3. Build
 

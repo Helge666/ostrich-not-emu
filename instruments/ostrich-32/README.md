@@ -48,7 +48,7 @@ Submodules:
 | Path | Source | What for |
 |---|---|---|
 | `gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), a fork of [dsp56300/gearmulator](https://github.com/dsp56300/gearmulator), at tag `ostrich-1` (upstream `2.2.27` plus mingw-w64 fixes) | the emulation (88emu) |
-| `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF), [DPF-LOGAN.md](DPF-LOGAN.md)) | plugin framework |
+| `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), branch `logan` (a fork of [DISTRHO/DPF](https://github.com/DISTRHO/DPF), [DPF-LOGAN.md](../../DPF-LOGAN.md)) | plugin framework |
 
 ## Licences
 

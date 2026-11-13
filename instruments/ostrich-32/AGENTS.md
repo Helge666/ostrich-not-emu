@@ -1,5 +1,8 @@
 # Ostrich 32
 
+Part of the monorepo Ostrich != Emu: read the root AGENTS.md first (rules for all
+instruments, the build host, shared code); this file adds what is particular to this one.
+
 ## About the project
 
 An emulation of the Roland MT-32 (1987) and its relatives CM-32L / CM-32LN as a DAW plugin
@@ -68,6 +71,6 @@ BUILDING.md how to build it, ROADMAP.md what is open.
   that does not match it.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%`
   are invisible to the DAW; the ROM folder is `C:\ProgramData\Ostrich 32\roms`.
-- Build host: kellerkind2, `~/coding/ostrich32`. Test ROMs there live outside the
-  repository, in `~/coding/ostrich32-roms`. The build host cannot reach GitHub by SSH;
-  pushes to the forks go from the owner's Windows machine.
+- Test ROMs on the build host: `/data/coding/ostrich32-roms` (`OSTRICH32_ROMS` for
+  `plugin/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
+  in phase 6 of the migration.

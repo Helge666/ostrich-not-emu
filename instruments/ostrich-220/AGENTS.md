@@ -1,5 +1,8 @@
 # Ostrich 220
 
+Part of the monorepo Ostrich != Emu: read the root AGENTS.md first (rules for all
+instruments, the build host, shared code); this file adds what is particular to this one.
+
 ## About the project
 
 An emulation of the Roland U-220 RS-PCM Sound Module (1989): a MAME driver and a DAW plugin
@@ -37,3 +40,6 @@ ROADMAP.md what is open, analysis/ what is known about the hardware.
   build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%` are
   invisible to the DAW; use `C:\ProgramData`.
+- Test ROMs on the build host: `/data/coding/ostrich-mameroms/u220` (`OSTRICH_ROMS` for
+  `plugin/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
+  in phase 6 of the migration.

@@ -1,13 +1,9 @@
 # Building Ostrich 32
 
-> **Since 13.11.2026 this instrument lives in the monorepo Ostrich != Emu**
-> (`instruments/<name>/`). Clone the monorepo, not the old repository. The submodules are
-> shared and live at the repository root: `third_party/dpf` (all instruments),
-> `third_party/mame` (220), `third_party/nuked-sc55` (55), `third_party/gearmulator` (32).
-> Fetch only what this instrument needs, from the repository root, e.g.
-> `git submodule update --init --recursive third_party/dpf`. Commands below run in this
-> instrument's folder unless they say otherwise. The shared BUILDING.md replaces this one
-> in phase 4 of MIGRATION.md.
+> Part of the monorepo Ostrich != Emu. Packages, cloning, the submodules (shared, in
+> `third_party/` at the repository root), building all instruments, installing and
+> checking renders: [the root BUILDING.md](../../BUILDING.md). This file adds what is
+> particular to this instrument; its commands run in this folder unless they say otherwise.
 
 The core, its test tool and the plugin (VST3, CLAP, standalone) build on Linux, natively
 and cross-compiled for Windows. After Ostrich 55's BUILDING.md.
@@ -19,29 +15,24 @@ Ostriches.
 
 ## 1. Cloning
 
+See the root BUILDING.md, section 2. Ostrich 32 needs `third_party/dpf` and
+`third_party/gearmulator`, the latter shallow and **without** `--recursive`:
+
 ```bash
-git clone https://github.com/Helge666/ostrich32.git
-cd ostrich32
-git submodule update --init third_party/dpf
-git submodule update --init --depth 1 gearmulator
+git submodule update --init --recursive third_party/dpf
+git submodule update --init --depth 1 third_party/gearmulator
 ```
 
-gearmulator is large and carries submodules Ostrich 32 does not need (JUCE, plugin SDKs).
-Do not clone it with `--recurse-submodules`; `plugin/tools/build_core.sh` fetches the few
-of its submodules the build needs, as shallow clones (about 660 MB in all).
-
-On Windows with `core.autocrlf=true`, set `core.autocrlf false` in the repository and in
-`third_party/dpf` before the submodules are checked out (DPF-LOGAN.md); the Make build needs LF.
-
-`git submodule status` must show a leading space on both lines; `+` or `m` means a
-submodule is not at its pinned state.
+gearmulator carries submodules Ostrich 32 does not need (JUCE, plugin SDKs);
+`plugin/tools/build_core.sh` fetches the few the build needs, as shallow clones
+(about 660 MB in all).
 
 ## 2. Submodules
 
 | Path | Pinned to | Notes |
 |---|---|---|
-| `gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-1` (`467d994`) | upstream tag `2.2.27` plus two commits on branch `ostrich`; only 88emu is built |
-| `gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`4bd5aeb`) | the commit `2.2.27` pins plus one commit |
+| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-1` (`467d994`) | upstream tag `2.2.27` plus two commits on branch `ostrich`; only 88emu is built |
+| `third_party/gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`4bd5aeb`) | the commit `2.2.27` pins plus one commit |
 | `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`b9424f1`) | see DPF-LOGAN.md |
 
 The commits on the `ostrich` branches, each needed only by mingw-w64 (GCC):

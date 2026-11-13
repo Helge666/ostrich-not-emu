@@ -1,5 +1,8 @@
 # Ostrich 55
 
+Part of the monorepo Ostrich != Emu: read the root AGENTS.md first (rules for all
+instruments, the build host, shared code); this file adds what is particular to this one.
+
 ## About the project
 
 An emulation of the Roland SC-55 Sound Canvas (1991) as a DAW plugin (VST3, CLAP,
@@ -46,5 +49,6 @@ what is open.
   (DPF-LOGAN.md).
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%`
   are invisible to the DAW; the ROM folder is `C:\ProgramData\Ostrich 55\roms`.
-- Build host: kellerkind2, `~/coding/ostrich55`. Test ROMs there live outside the
-  repository, in `~/coding/ostrich55-roms`.
+- Test ROMs on the build host: `/data/coding/ostrich55-roms` (`OSTRICH55_ROMS` for
+  `plugin/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
+  in phase 6 of the migration.

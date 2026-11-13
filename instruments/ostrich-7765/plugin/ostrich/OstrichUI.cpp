@@ -9,6 +9,7 @@
 
 #include "DistrhoUI.hpp"
 #include "OstrichShared.hpp"
+#include "../../../../shared/plugin/PanelSize.hpp"
 #include "Version.hpp"
 
 #include <algorithm>
@@ -269,7 +270,7 @@ protected:
 
 	bool onScroll(const ScrollEvent &ev) override
 	{
-		const float s = mouseScale();
+		const float s = m_size.mouseScale();
 		const float x = float(ev.pos.getX()) / s, y = float(ev.pos.getY()) / s;
 		if (ev.delta.getY() == 0)
 			return false;
@@ -300,7 +301,7 @@ protected:
 	void stateChanged(const char *key, const char *value) override
 	{
 		if (std::strcmp(key, "uisize") == 0)
-			restoreSize(value);
+			m_size.restore(value);
 		else if (std::strcmp(key, "romset") == 0)
 		{
 			setRomSet(value);
@@ -321,7 +322,7 @@ protected:
 	{
 		if (ev.button != 1)
 			return false;
-		const float s = mouseScale();
+		const float s = m_size.mouseScale();
 		const float x = float(ev.pos.getX()) / s, y = float(ev.pos.getY()) / s;
 		if (!ev.press)
 		{
@@ -439,7 +440,7 @@ protected:
 	{
 		if (m_drag < 0)
 			return false;
-		const float s = mouseScale();
+		const float s = m_size.mouseScale();
 		const float y = float(ev.pos.getY()) / s;
 		const uint32_t p = uint32_t(m_drag);
 		// 200 units of travel for the whole range; Shift: five times finer.
@@ -480,9 +481,7 @@ protected:
 	void uiIdle() override
 	{
 		const auto now = Clock::now();
-		if (!m_frameFitted && now - m_created < std::chrono::seconds(2))
-			fitHostFrame();
-		saveSizeWhenSettled();
+		m_size.idle();
 		// No answer from the DSP: say so rather than wait for ever.
 		if (m_romAsked && now - m_romAskedAt > std::chrono::seconds(20))
 		{
@@ -1229,79 +1228,6 @@ private:
 		return cut == std::string::npos ? std::string() : path.substr(0, cut);
 	}
 
-	// ---- the window's size, as in Ostrich 220 ----------------------------------------------
-
-	// The panel's size lives in the plugin's state, so the host saves it with the session.
-	// Unscaled -- window pixels over the desktop scale factor -- so that it opens the same on
-	// a screen with other scaling.
-	void restoreSize(const char *value)
-	{
-		unsigned w = 0, h = 0;
-		if (std::sscanf(value, "%u %u", &w, &h) != 2 || w < 100 || h < 20)
-			return;
-		if (std::fabs(double(w) / h - kW / kH) > 0.05)
-			h = unsigned(std::lround(w * kH / kW));
-		m_sizeSaved = value;
-		const double scale = getWindow().getScaleFactor();
-		const uint pw = uint(std::lround(w * scale)), ph = uint(std::lround(h * scale));
-		if (std::abs(int(pw) - int(getWindow().getWidth())) > 2 || std::abs(int(ph) - int(getWindow().getHeight())) > 2)
-			getWindow().setSize(pw, ph);
-	}
-
-	// Sends the size once it has stood still for a second -- not while the user drags, and
-	// not in the first seconds, while the host still settles the window and the saved size
-	// is on its way (restoreSize).
-	void saveSizeWhenSettled()
-	{
-		const auto now = Clock::now();
-		const uint pw = getWindow().getWidth(), ph = getWindow().getHeight();
-		if (pw != m_sizeSeenW || ph != m_sizeSeenH)
-		{
-			m_sizeSeenW = pw;
-			m_sizeSeenH = ph;
-			m_sizeSeenSince = now;
-			return;
-		}
-		if (now - m_created < std::chrono::seconds(3) || now - m_sizeSeenSince < std::chrono::seconds(1))
-			return;
-		const double scale = getWindow().getScaleFactor();
-		char value[32];
-		std::snprintf(value, sizeof(value), "%u %u", unsigned(std::lround(pw / scale)), unsigned(std::lround(ph / scale)));
-		if (m_sizeSaved == value)
-			return;
-		unsigned sw = 0, sh = 0;
-		if (std::sscanf(m_sizeSaved.c_str(), "%u %u", &sw, &sh) == 2
-				&& std::abs(int(sw * scale) - int(pw)) <= 2 && std::abs(int(sh * scale) - int(ph)) <= 2)
-			return;                     // the host's rounding, not a resize
-		m_sizeSaved = value;
-		setState("uisize", value);
-	}
-
-	// Cubase at 125 % tells a new view "scale 1.0" before it opens and sizes it for that,
-	// while its own window is made for 125 %: the view sat in a black margin until reopened.
-	// A view below its least size at the desktop's scale is that; it asks the host for the
-	// least size, as a reopened view gets.  Once, after DPF's first idle.
-	void fitHostFrame()
-	{
-		if (Clock::now() - m_created < std::chrono::milliseconds(200))
-			return;
-		m_frameFitted = true;
-		bool keep = false;
-		const Size<uint> least = getWindow().getGeometryConstraints(keep);
-		const double scale = getWindow().getScaleFactor();
-		const uint lw = uint(std::lround(least.getWidth() * scale)), lh = uint(std::lround(least.getHeight() * scale));
-		if (getWindow().getWidth() + 2 < lw || getWindow().getHeight() + 2 < lh)
-			getWindow().setSize(lw, lh);
-	}
-
-	// Mouse events come in the window's own pixels.  The panel is drawn in design units
-	// scaled by getWidth() / kW on top of DGL's automatic scaling, so the full factor is the
-	// window width over the design width.
-	float mouseScale() const
-	{
-		return float(getWindow().getWidth()) / kW;
-	}
-
 	uint32_t m_tab = kTR505;
 	int m_channel[kNumMachines];
 	float m_value[kParamCount];
@@ -1324,11 +1250,7 @@ private:
 	uint32_t m_romAskedMachine = 0, m_romMsgMachine = 0;
 	Clock::time_point m_romAskedAt {};
 
-	const Clock::time_point m_created = Clock::now();
-	std::string m_sizeSaved;                    // "<w> <h>" unscaled, as in the plugin state
-	uint m_sizeSeenW = 0, m_sizeSeenH = 0;
-	Clock::time_point m_sizeSeenSince {};
-	bool m_frameFitted = false;                 // fitHostFrame
+	PanelSize m_size { *this, kW, kH };
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichUI)
 };

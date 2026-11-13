@@ -1,0 +1,8 @@
+# Build products: the core (build-u220/), and per plugin build/, bin/, build-win/, bin-win/.
+build/
+bin/
+build-win/
+bin-win/
+build-u220/
+*.o
+*.d

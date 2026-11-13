@@ -1,0 +1,13 @@
+# ---------------------------------------------------------------------------------------
+# COPYRIGHTED MATERIAL -- never commit, never push.
+# Firmware, wave ROMs, card dumps and manuals belong to their makers. This repository only
+# says WHERE a user must put their own dumps; it never carries them. Each instrument's own
+# .gitignore lists its patterns in detail; these apply everywhere.
+# If a binary matching these patterns is NOT copyrighted (a fixture you generated), use
+# `git add -f` and say why in the commit message.
+# ---------------------------------------------------------------------------------------
+*.bin
+*.BIN
+*.rom
+*.ROM
+*.zip

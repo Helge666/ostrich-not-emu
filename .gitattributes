@@ -1,0 +1,8 @@
+# Keep LF everywhere, also in Windows checkouts: the scripts and the builds run on Linux
+# (the build host kellerkind2 and CI).
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.ttf binary
+*.wav binary
+*.pdf binary

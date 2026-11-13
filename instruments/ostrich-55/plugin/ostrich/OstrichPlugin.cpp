@@ -218,7 +218,7 @@ protected:
 	const char *getLabel() const override { return "Ostrich55"; }
 	const char *getMaker() const override { return "Ostrich 55 project"; }
 	const char *getLicense() const override { return "GPL-3.0-or-later"; }
-	const char *getHomePage() const override { return "https://github.com/Helge666/ostrich55"; }
+	const char *getHomePage() const override { return "https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-55"; }
 	uint32_t getVersion() const override { return d_version(0, 1, 0); }
 	int64_t getUniqueId() const override { return d_cconst('O', '0', '5', '5'); }
 	const char *getDescription() const override

@@ -687,7 +687,7 @@ private:
 		textAlign(ALIGN_RIGHT | ALIGN_BASELINE);
 		fontSize(12);
 		fillColor(t.inkDim);
-		text(kW - kMargin, 46, "Ostrich 7765 " OSTRICH_VERSION_STRING "  \xe2\x80\x93  github.com/Helge666/ostrich7765", nullptr);
+		text(kW - kMargin, 46, "Ostrich 7765 " OSTRICH_VERSION_STRING "  \xe2\x80\x93  github.com/Helge666/ostrich-not-emu", nullptr);
 
 		drawTabs();
 		drawBody();

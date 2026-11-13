@@ -102,7 +102,7 @@ Section "-common"
   WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "${PRODUCT}"
   WriteRegStr HKLM "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKLM "${UNINST_KEY}" "Publisher" "Ostrich 55 project"
-  WriteRegStr HKLM "${UNINST_KEY}" "URLInfoAbout" "https://github.com/Helge666/ostrich55"
+  WriteRegStr HKLM "${UNINST_KEY}" "URLInfoAbout" "https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-55"
   WriteRegStr HKLM "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "${UNINST_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegDWORD HKLM "${UNINST_KEY}" "NoModify" 1

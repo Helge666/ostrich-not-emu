@@ -185,7 +185,7 @@ protected:
 	const char *getLabel() const override { return "Ostrich32"; }
 	const char *getMaker() const override { return "Ostrich 32 project"; }
 	const char *getLicense() const override { return "GPL-3.0-or-later"; }
-	const char *getHomePage() const override { return "https://github.com/Helge666/ostrich32"; }
+	const char *getHomePage() const override { return "https://github.com/Helge666/ostrich-not-emu/tree/main/instruments/ostrich-32"; }
 	uint32_t getVersion() const override
 	{
 		return d_version(OSTRICH_VERSION_MAJOR, OSTRICH_VERSION_MINOR, OSTRICH_VERSION_PATCH);

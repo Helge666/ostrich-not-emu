@@ -10,7 +10,7 @@
 NAME = Ostrich7765
 
 FILES_DSP = OstrichPlugin.cpp engine/Tr707.cpp engine/PcmMachine.cpp engine/SoundOrder.cpp \
-            engine/Roms.cpp
+            engine/Roms.cpp MidiInput.cpp
 FILES_UI  = OstrichUI.cpp
 
 # DPF is the monorepo's shared submodule third_party/dpf.  Build objects and binaries stay
@@ -22,7 +22,7 @@ include ../../../../third_party/dpf/Makefile.plugins.mk
 BUILD_CXX_FLAGS := -I. $(BUILD_CXX_FLAGS) -std=c++20
 
 ifeq ($(WINDOWS),true)
-EXTRA_LIBS      += -lpthread
+EXTRA_LIBS      += -lpthread -lwinmm
 endif
 
 TARGETS = vst3 clap jack

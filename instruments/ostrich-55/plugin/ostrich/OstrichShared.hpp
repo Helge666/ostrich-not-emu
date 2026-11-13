@@ -83,13 +83,8 @@ constexpr const char *kRomSizes[kRomSlots] = { "32 KB", "256 KB", "1 MB", "1 MB"
 /// then the folder new images are copied to.
 constexpr char kFieldSep = '\x1f';
 
-/// The Windows standalone's own MIDI IN (MidiInput.hpp).  "midiports" is empty where there
-/// is none (plugins, Linux); else fields separated by kFieldSep: the choice ("" off, "*"
-/// all inputs, or a port's name), what went wrong with it (empty when nothing), then the
-/// ports there are.  "midiin" sends a new choice, "<n> <choice>"; "<n> ?" only asks for the
-/// ports again (a keyboard plugged in since).
-constexpr const char *kMidiAll = "*";
-constexpr const char *kMidiRescan = "?";
+/// "midiin" and "midiports", the Windows standalone's own MIDI IN:
+/// shared/plugin/StandaloneMidi.hpp.
 
 /// The LCD as the UI draws it.  Sent as hex, only when it changed.
 struct PanelBlob

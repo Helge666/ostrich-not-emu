@@ -184,6 +184,8 @@ enum State : uint32_t
 	kStateTab,                  ///< host session: the tab shown, "0".."4"
 	kStateRomSet,               ///< DSP -> UI: the ROM images found, see below
 	kStateRomFile,              ///< UI -> DSP, "<seq> <machine> <path>": a file the user picked
+	kStateMidiIn,               ///< UI -> DSP: the standalone's MIDI IN, see StandaloneMidi.hpp
+	kStateMidiPorts,            ///< DSP -> UI: its ports, ditto
 	kStateCount
 };
 

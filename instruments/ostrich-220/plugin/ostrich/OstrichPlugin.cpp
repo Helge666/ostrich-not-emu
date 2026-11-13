@@ -8,6 +8,7 @@
 // here is about being a plugin; nothing here may change how the machine behaves.
 
 #include "DistrhoPlugin.hpp"
+#include "DistrhoPluginUtils.hpp"
 #include "OstrichShared.hpp"
 
 #include "u220_core.h"
@@ -15,6 +16,7 @@
 #include "DacStage.hpp"
 #include "../../../../shared/plugin/FileIO.hpp"
 #include "../../../../shared/plugin/Folders.hpp"
+#include "../../../../shared/plugin/StandaloneMidi.hpp"
 #include "../../../../shared/plugin/ZipReader.hpp"
 
 #include <algorithm>
@@ -358,6 +360,7 @@ public:
 		m_core.setEffects(&m_fx);
 		loadRoms();
 		setupRate(getSampleRate());
+		m_midi.start();
 	}
 
 	~OstrichPlugin() override
@@ -580,6 +583,16 @@ protected:
 			state.label = "Display click";
 			state.hints = kStateIsOnlyForDSP;
 			break;
+		case kStateMidiIn:
+			state.key = "midiin";
+			state.label = "MIDI IN port";
+			state.hints = kStateIsOnlyForDSP;
+			break;
+		case kStateMidiPorts:
+			state.key = "midiports";
+			state.label = "MIDI IN ports";
+			state.hints = kStateIsOnlyForUI;
+			break;
 		}
 		state.defaultValue = "";
 	}
@@ -596,6 +609,8 @@ protected:
 			std::lock_guard<std::mutex> lock(m_uiSizeLock);
 			return String(m_uiSize.c_str());
 		}
+		if (std::strcmp(key, "midiports") == 0)
+			return String(m_midi.portsText().c_str());
 		for (unsigned s = 0; s < kCardSlots; s ++)
 			if (std::strcmp(key, kCardStateKeys[s]) == 0)
 			{
@@ -668,6 +683,11 @@ protected:
 		{
 			if (value[0] != '\0')
 				requestRomFile(value);
+			return;
+		}
+		if (std::strcmp(key, "midiin") == 0)
+		{
+			m_midi.setState(value);
 			return;
 		}
 		if (std::strcmp(key, "lcdgoto") == 0)
@@ -752,6 +772,7 @@ protected:
 				updateStateValue("cardinfo", m_cardInfoSent.c_str());
 			}
 		}
+		m_midi.takePorts([this](const char *t) { updateStateValue("midiports", t); });
 
 		// setState() reboots the machine on another thread.  Never wait for it here.
 		std::unique_lock<std::mutex> lock(m_machine, std::try_to_lock);
@@ -759,6 +780,7 @@ protected:
 		{
 			for (uint32_t c = 0; c < DISTRHO_PLUGIN_NUM_OUTPUTS; c ++)
 				std::memset(outputs[c], 0, sizeof(float) * frames);
+			m_midi.drop();                  // played while nothing listens: gone
 			if (!m_romsLoaded)
 				publishPanel(frames);
 			return;
@@ -769,16 +791,32 @@ protected:
 		tickGoto(coreFrames);
 		tickCards(coreFrames);
 
-		for (uint32_t i = 0; i < midiEventCount; i ++)
+		// MIDI in, the host's and the Windows standalone's own merged in time order.
+		const uint32_t own = m_midi.collect(frames, m_hostRate);
+		for (uint32_t i = 0, o = 0; i < midiEventCount || o < own; )
 		{
-			const MidiEvent &ev = midiEvents[i];
-			const uint8_t *data = ev.size > MidiEvent::kDataSize ? ev.dataExt : ev.data;
-			if (ev.size == 0)
+			uint32_t frame, size;
+			const uint8_t *data;
+			if (o < own && (i >= midiEventCount || m_midi.event(o).frame < midiEvents[i].frame))
+			{
+				const StandaloneMidi::Event e = m_midi.event(o ++);
+				frame = e.frame;
+				size = e.size;
+				data = e.data;
+			}
+			else
+			{
+				const MidiEvent &ev = midiEvents[i ++];
+				frame = ev.frame;
+				size = ev.size;
+				data = ev.size > MidiEvent::kDataSize ? ev.dataExt : ev.data;
+			}
+			if (size == 0)
 				continue;
-			uint32_t off = uint32_t(double(ev.frame) * kCoreRate / m_hostRate);
+			uint32_t off = uint32_t(double(frame) * kCoreRate / m_hostRate);
 			if (coreFrames && off >= coreFrames)
 				off = coreFrames - 1;
-			m_core.midiIn(data, ev.size, off);
+			m_core.midiIn(data, size, off);
 			m_midiSeen = true;
 		}
 
@@ -2006,6 +2044,8 @@ private:
 	uint8_t m_sysexArena[8192];
 	size_t m_sysexUsed = 0;
 
+	// The Windows standalone's own MIDI IN.
+	StandaloneMidi m_midi { std::strstr(getPluginFormatName(), "Standalone") != nullptr, "Ostrich 220" };
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichPlugin)
 };

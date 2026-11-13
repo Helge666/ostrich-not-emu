@@ -76,6 +76,9 @@ public:
 		m_bufferField = buffer;
 	}
 
+	/// Another look (Ostrich 7765 has two).
+	void setStyle(const BarStyle &style) { m_style = style; }
+
 	// ---- the state ---------------------------------------------------------------------------
 
 	/// "midiports": empty where there is no MIDI IN of our own; else the choice, what went
@@ -411,7 +414,7 @@ private:
 	};
 
 	DISTRHO::UI &m_ui;
-	const BarStyle m_style;
+	BarStyle m_style;
 	const float m_listBottom, m_panelW;
 	const int m_rows;
 	const std::filesystem::path m_bufferFile;

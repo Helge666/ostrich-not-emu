@@ -6,8 +6,10 @@
 // unit.
 
 #include "DistrhoUI.hpp"
+#include "DistrhoStandaloneUtils.hpp"
 #include "OstrichShared.hpp"
 #include "../../../../shared/plugin/PanelSize.hpp"
+#include "../../../../shared/plugin/StandaloneBar.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -30,8 +32,7 @@ constexpr float kW = 1350.0f, kPanelH = 250.0f;
 constexpr float kH = kW * DISTRHO_UI_DEFAULT_HEIGHT / DISTRHO_UI_DEFAULT_WIDTH;
 constexpr float kBarY = kPanelH, kBarH = kH - kPanelH;
 
-struct Rect { float x, y, w, h; bool contains(float px, float py) const
-	{ return px >= x && px < x + w && py >= y && py < y + h; } };
+using Rect = ostrich::BarRect;
 
 // The keys, in parameter order (OstrichShared.hpp).  Block 1 is 2 x 2, block 2 is 2 x 4,
 // top row first -- as on the unit.
@@ -70,11 +71,24 @@ const Rect kSlots[kCardSlots] = {
 inline Rect ejectRect(const Rect &slot) { return { slot.x + slot.w - 30, slot.y + 8, 24, slot.h - 16 }; }
 
 // The bar, from the right: SysEx files (a bulk dump of the whole machine to a .syx, or a
-// .syx in), then the HW-EQ switch; the status line takes the rest.
+// .syx in), then the HW-EQ switch, in the standalone MIDI IN (Windows) and BUFFER; the
+// status line takes the rest.  The standalone's lists open upwards, over the panel.
 constexpr float kBarBtnH = 18.0f, kBarBtnY = kBarY + (kBarH - kBarBtnH) / 2;
 const Rect kSyxSave { kW - 16.0f - 87.0f, kBarBtnY, 87.0f, kBarBtnH };
 const Rect kSyxLoad { kSyxSave.x - 8.0f - 87.0f, kBarBtnY, 87.0f, kBarBtnH };
 const Rect kHwEq    { kSyxLoad.x - 28.0f - 68.0f, kBarBtnY, 68.0f, kBarBtnH };
+const Rect kMidiIn  { kHwEq.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
+const Rect kBufferBtn { kMidiIn.x - 8.0f - 150.0f, kBarBtnY, 150.0f, kBarBtnH };
+
+// The bar's controls in the panel's green.
+BarStyle barStyle()
+{
+	BarStyle b;
+	b.accent = Color(150, 190, 60);
+	b.litText = Color(30, 45, 20);
+	b.hover = Color(42, 54, 24);
+	return b;
+}
 
 // While ROM images are missing they take the place of the display and the keys: what is
 // needed, a chip per image (and the optional factory dump), and a button that asks for a
@@ -102,6 +116,7 @@ public:
 	{
 		loadSharedResources();
 		std::memset(&m_panel, 0, sizeof(m_panel));
+		m_bar.place(kMidiIn, kBufferBtn);
 	}
 
 protected:
@@ -143,6 +158,11 @@ protected:
 		else if (std::strcmp(key, "romset") == 0)
 		{
 			setRomSet(value);
+			repaint();
+		}
+		else if (std::strcmp(key, "midiports") == 0)
+		{
+			m_bar.setMidiPorts(value);
 			repaint();
 		}
 		else
@@ -237,6 +257,7 @@ protected:
 		}
 		drawSlots();
 		drawBar();
+		m_bar.drawList();
 	}
 
 	// What the unit does not have, under its front.
@@ -253,13 +274,14 @@ protected:
 
 		drawHwEq();
 		drawSyxButtons();
+		m_bar.drawFields();
 
 		// The status line, one line, cut where the controls begin.
-		const float w = kHwEq.x - 24 - 16;
+		const float w = m_bar.leftEdge(kHwEq.x) - 24 - 16;
 		fontSize(11);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(m_panel.flags & 1 ? Color(140, 140, 140) : Color(240, 170, 60));
-		text(16, kBarY + kBarH / 2 + 1, fit(m_status, w, 11).c_str(), nullptr);
+		text(16, kBarY + kBarH / 2 + 1, m_bar.fit(m_status, w, 11).c_str(), nullptr);
 	}
 
 	bool onMouse(const MouseEvent &ev) override
@@ -272,6 +294,8 @@ protected:
 		if (ev.press)
 		{
 			getWindow().focus();                // for the computer keyboard (onKeyboard)
+			if (m_bar.press(x, y))
+				return true;
 			if (romSetup())
 			{
 				bool hit = kRomChoose.contains(x, y);
@@ -384,9 +408,11 @@ protected:
 
 	bool onMotion(const MotionEvent &ev) override
 	{
+		const float s = m_size.mouseScale();
+		if (m_bar.motion(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s))
+			return true;
 		if (!m_dragKnob)
 			return false;
-		const float s = m_size.mouseScale();
 		const float y = float(ev.pos.getY()) / s;
 		float db = m_dragStartDb + (m_dragY - y) * 0.3f;
 		db = std::fmax(-40.0f, std::fmin(12.0f, db));
@@ -404,6 +430,8 @@ protected:
 	{
 		if (ev.mod & (kModifierControl | kModifierAlt | kModifierSuper))
 			return false;
+		if (ev.press && ev.key == kKeyEscape && m_bar.escape())
+			return true;                                // an open list, not EXIT
 		if (!ev.press)
 		{
 			for (unsigned k = 0; k < kNumKeys; k ++)
@@ -562,10 +590,10 @@ private:
 			"Click CHOOSE FILE and pick any one of the images, or a zip such as MAME's u220.zip: "
 			"the rest of that folder is searched too, by contents, not names. They are copied to:", nullptr);
 		fillColor(Color(140, 140, 146));
-		text(180, 176, fit(m_romTarget, 430, 11).c_str(), nullptr);
+		text(180, 176, m_bar.fit(m_romTarget, 430, 11).c_str(), nullptr);
 		textLineHeight(1.0f);
 
-		barButton(kRomChoose, m_romChecking ? "CHECKING\xe2\x80\xa6" : "CHOOSE FILE\xe2\x80\xa6", !m_romChecking);
+		m_bar.button(kRomChoose, m_romChecking ? "CHECKING\xe2\x80\xa6" : "CHOOSE FILE\xe2\x80\xa6", !m_romChecking);
 		fontSize(10);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(Color(110, 110, 116));
@@ -610,7 +638,7 @@ private:
 			fillColor(ok ? Color(150, 190, 60) : factory ? Color(110, 110, 116) : Color(240, 170, 60));
 			std::string state;
 			if (factory)
-				state = ok ? fit(what, r.w - 20, 10) : "not found";
+				state = ok ? m_bar.fit(what, r.w - 20, 10) : "not found";
 			else
 				state = ok ? (i == kRomSlots - 1 ? what + " \xc2\xb7 found" : "found")
 				           : std::string(i == kRomSlots - 1 ? "128 KB" : "512 KB") + " \xc2\xb7 missing";
@@ -637,11 +665,11 @@ private:
 #else
 		if (const char *x = std::getenv("XDG_CONFIG_HOME"))
 			if (*x)
-				return fs::u8path(x) / "Ostrich 220" / "folders.txt";
+				return upath(x) / "Ostrich 220" / "folders.txt";
 		const char *home = std::getenv("HOME");
 		if (home == nullptr || *home == '\0')
 			return {};
-		return fs::u8path(home) / ".config" / "Ostrich 220" / "folders.txt";
+		return upath(home) / ".config" / "Ostrich 220" / "folders.txt";
 #endif
 	}
 
@@ -707,24 +735,8 @@ private:
 
 	void drawSyxButtons()
 	{
-		barButton(kSyxLoad, "LOAD SYSEX", false);
-		barButton(kSyxSave, "SAVE SYSEX", false);
-	}
-
-	// A control in the bar: dark with a thin edge, as a host's own; lit when on.
-	void barButton(const Rect &r, const char *label, bool lit)
-	{
-		beginPath();
-		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
-		fillColor(lit ? Color(150, 190, 60) : Color(30, 30, 33));
-		fill();
-		strokeColor(lit ? Color(150, 190, 60) : Color(84, 84, 90));
-		strokeWidth(1);
-		stroke();
-		fontSize(10);
-		textAlign(ALIGN_CENTER | ALIGN_MIDDLE);
-		fillColor(lit ? Color(30, 45, 20) : Color(200, 200, 204));
-		text(r.x + r.w / 2, r.y + r.h / 2 + 1, label, nullptr);
+		m_bar.button(kSyxLoad, "LOAD SYSEX", false);
+		m_bar.button(kSyxSave, "SAVE SYSEX", false);
 	}
 
 	void setCardInfo(const char *value)
@@ -788,7 +800,7 @@ private:
 				textBox(tx, r.y + 18, tw, cv.line1.c_str(), nullptr);
 				fontSize(9);
 				fillColor(Color(60, 60, 66));
-				textBox(tx, r.y + 31, tw, fit(cv.line2, tw, 9).c_str(), nullptr);
+				textBox(tx, r.y + 31, tw, m_bar.fit(cv.line2, tw, 9).c_str(), nullptr);
 			}
 			else
 			{
@@ -803,7 +815,7 @@ private:
 				if (cv.error)
 				{
 					fontSize(9);
-					textBox(tx, r.y + 31, tw, fit(cv.line2, tw, 9).c_str(), nullptr);
+					textBox(tx, r.y + 31, tw, m_bar.fit(cv.line2, tw, 9).c_str(), nullptr);
 				}
 				else
 				{
@@ -834,20 +846,9 @@ private:
 		}
 	}
 
-	// Cut text to a width, with an ellipsis -- the font is set by the caller.
-	std::string fit(const std::string &t, float w, float size)
-	{
-		fontSize(size);
-		std::string s = t;
-		Rectangle<float> b;
-		while (!s.empty() && textBounds(0, 0, (s + (s.size() < t.size() ? "\xe2\x80\xa6" : "")).c_str(), nullptr, b) > w)
-			s.pop_back();
-		return s.size() < t.size() ? s + "\xe2\x80\xa6" : s;
-	}
-
 	void drawHwEq()
 	{
-		barButton(kHwEq, "HW-EQ", m_hwEq);
+		m_bar.button(kHwEq, "HW-EQ", m_hwEq);
 	}
 
 	// MIDI MESSAGE: green while MIDI comes in.  Narrow, as the unit's; under VOLUME, since
@@ -983,6 +984,7 @@ private:
 	void uiIdle() override
 	{
 		m_size.idle();
+		m_bar.idle();
 		if (m_panel.cursor_flags & 1)
 			repaint();
 		if (m_romChecking && std::chrono::steady_clock::now() - m_romAskedAt > std::chrono::seconds(15))
@@ -1067,6 +1069,7 @@ private:
 	bool m_romSetSeen = false, m_romsAll = false, m_romChecking = false;
 	std::chrono::steady_clock::time_point m_romAskedAt {};
 	PanelSize m_size { *this, kW, kH };
+	StandaloneBar m_bar { *this, "Ostrich 220", kBarY, kW, barStyle() };
 	float m_volumeDb = 0.0f;
 	bool m_hwEq = true;
 	bool m_keyLit[kNumKeys] = {};

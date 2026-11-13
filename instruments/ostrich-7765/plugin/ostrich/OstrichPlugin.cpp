@@ -6,8 +6,10 @@
 // ROMs yet) follows.
 
 #include "DistrhoPlugin.hpp"
+#include "DistrhoPluginUtils.hpp"
 #include "OstrichShared.hpp"
 #include "Version.hpp"
+#include "../../../../shared/plugin/StandaloneMidi.hpp"
 
 #include "engine/PcmMachine.hpp"
 #include "engine/Resampler.hpp"
@@ -56,6 +58,8 @@ public:
 		takeEngines(e);
 		publishRomSet(0, 0, std::string());
 		sampleRateChanged(getSampleRate());
+		m_merged.reserve(1024);
+		m_midi.start();
 	}
 
 	~OstrichPlugin() override
@@ -377,6 +381,19 @@ protected:
 			state.hints = kStateIsOnlyForDSP;
 			state.defaultValue = "";
 			return;
+		case kStateMidiIn:
+			// The Windows standalone's own MIDI IN (shared/plugin/StandaloneMidi.hpp).
+			state.key = "midiin";
+			state.label = "MIDI IN port";
+			state.hints = kStateIsOnlyForDSP;
+			state.defaultValue = "";
+			return;
+		case kStateMidiPorts:
+			state.key = "midiports";
+			state.label = "MIDI IN ports";
+			state.hints = kStateIsOnlyForUI;
+			state.defaultValue = "";
+			return;
 		}
 		state.hints = 0;
 		state.defaultValue = "";
@@ -391,6 +408,8 @@ protected:
 			return String(m_tab.c_str());
 		if (std::strcmp(key, "romset") == 0)
 			return String(m_romSet.c_str());
+		if (std::strcmp(key, "midiports") == 0)
+			return String(m_midi.portsText().c_str());
 		return String();
 	}
 
@@ -398,6 +417,8 @@ protected:
 	{
 		if (std::strcmp(key, "romfile") == 0)
 			return requestRomFile(value);
+		if (std::strcmp(key, "midiin") == 0)
+			return m_midi.setState(value);
 		std::lock_guard<std::mutex> lock(m_stateLock);
 		if (std::strcmp(key, "uisize") == 0)
 			m_uiSize = value;
@@ -467,11 +488,39 @@ protected:
 				updateStateValue("romset", m_romSet.c_str());
 			}
 		}
+		m_midi.takePorts([this](const char *t) { updateStateValue("midiports", t); });
 		// Held for a moment only, while the ROM thread hands over new engines: this block is
 		// silent then.
 		std::unique_lock<std::mutex> engines(m_engineLock, std::try_to_lock);
 		if (!engines.owns_lock())
+		{
+			m_midi.drop();                  // played while nothing listens: gone
 			return;
+		}
+		// The Windows standalone's own MIDI IN, merged with the host's in time order.
+		const uint32_t own = m_midi.collect(frames, getSampleRate());
+		if (own > 0)
+		{
+			m_merged.clear();
+			for (uint32_t i = 0, o = 0; i < eventCount || o < own; )
+			{
+				if (o < own && (i >= eventCount || m_midi.event(o).frame < events[i].frame))
+				{
+					const StandaloneMidi::Event e = m_midi.event(o ++);
+					if (e.size == 0 || e.size > MidiEvent::kDataSize)
+						continue;               // SysEx: nothing here listens to it
+					MidiEvent m = {};
+					m.frame = e.frame;
+					m.size = e.size;
+					std::memcpy(m.data, e.data, e.size);
+					m_merged.push_back(m);
+				}
+				else
+					m_merged.push_back(events[i ++]);
+			}
+			events = m_merged.data();
+			eventCount = uint32_t(m_merged.size());
+		}
 		applyLevels();
 
 		const float gain = std::pow(10.0f, m_volumeDb / 20.0f) * kTrim;
@@ -912,6 +961,9 @@ private:
 	std::string m_uiSize, m_tab, m_romSet;
 	std::atomic<bool> m_romSetPending { false }, m_romBusy { false };
 	std::thread m_romThread;
+
+	StandaloneMidi m_midi { std::strstr(getPluginFormatName(), "Standalone") != nullptr, "Ostrich 7765" };
+	std::vector<MidiEvent> m_merged;               // the audio thread's: host + own MIDI
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichPlugin)
 };

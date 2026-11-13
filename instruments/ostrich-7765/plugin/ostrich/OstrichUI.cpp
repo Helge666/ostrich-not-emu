@@ -8,8 +8,10 @@
 // instances in the panel's settings file.
 
 #include "DistrhoUI.hpp"
+#include "DistrhoStandaloneUtils.hpp"
 #include "OstrichShared.hpp"
 #include "../../../../shared/plugin/PanelSize.hpp"
+#include "../../../../shared/plugin/StandaloneBar.hpp"
 #include "Version.hpp"
 
 #include <algorithm>
@@ -33,14 +35,16 @@ using Clock = std::chrono::steady_clock;
 // Design units: the window's pixels at 100 %.
 constexpr float kW = DISTRHO_UI_DEFAULT_WIDTH, kH = DISTRHO_UI_DEFAULT_HEIGHT;
 
-struct Rect { float x, y, w, h; bool contains(float px, float py) const
-	{ return px >= x && px < x + w && py >= y && py < y + h; } };
+using Rect = ostrich::BarRect;
 
 constexpr float kMargin = 16.0f;
 constexpr float kTabY = 72.0f, kTabH = 30.0f, kTabW = 132.0f, kTabGap = 6.0f;
 constexpr float kBodyY = kTabY + kTabH;
 constexpr float kFooterH = 30.0f;
 const Rect kBody { kMargin, kBodyY, kW - 2 * kMargin, kH - kBodyY - kFooterH - 6.0f };
+// The Windows standalone's MIDI IN and BUFFER, in the footer left of the disclaimer; their
+// lists open upwards, over the panel.
+constexpr float kBarFieldH = 18.0f, kMidiInW = 220.0f, kBufferW = 150.0f;
 
 inline Rect tabRect(uint32_t t)
 {
@@ -90,6 +94,24 @@ const Theme kVintage {
 };
 
 enum Look : int { kLookVintage = 0, kLookDark = 1 };
+
+// The standalone's fields in the look's colours.
+BarStyle barStyle(const Theme &th)
+{
+	BarStyle b;
+	b.field = th.button;
+	b.edge = th.edge;
+	b.accent = th.accent;
+	b.name = th.inkDim;
+	b.value = th.ink;
+	b.warn = th.warn;
+	b.arrow = th.ink;
+	b.litText = th.back;
+	b.list = th.panel;
+	b.hover = Color(th.panel, th.accent, 0.25f);
+	b.rule = th.edge;
+	return b;
+}
 
 // The panel's own settings, for all instances: the look.
 std::filesystem::path settingsFile()
@@ -302,6 +324,11 @@ protected:
 	{
 		if (std::strcmp(key, "uisize") == 0)
 			m_size.restore(value);
+		else if (std::strcmp(key, "midiports") == 0)
+		{
+			m_bar.setMidiPorts(value);
+			repaint();
+		}
 		else if (std::strcmp(key, "romset") == 0)
 		{
 			setRomSet(value);
@@ -335,6 +362,8 @@ protected:
 			}
 			return false;
 		}
+		if (m_bar.press(x, y))
+			return true;
 		for (uint32_t t = 0; t < kNumTabs; t ++)
 			if (tabRect(t).contains(x, y))
 			{
@@ -438,9 +467,11 @@ protected:
 
 	bool onMotion(const MotionEvent &ev) override
 	{
+		const float s = m_size.mouseScale();
+		if (m_bar.motion(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s))
+			return true;
 		if (m_drag < 0)
 			return false;
-		const float s = m_size.mouseScale();
 		const float y = float(ev.pos.getY()) / s;
 		const uint32_t p = uint32_t(m_drag);
 		// 200 units of travel for the whole range; Shift: five times finer.
@@ -448,6 +479,11 @@ protected:
 		const float per = (ev.mod & kModifierShift) ? 1000.0f : 200.0f;
 		setValue(p, m_dragFrom + (m_dragY - y) / per * span, false);
 		return true;
+	}
+
+	bool onKeyboard(const KeyboardEvent &ev) override
+	{
+		return ev.press && ev.key == kKeyEscape && m_bar.escape();
 	}
 
 	void uiFileBrowserSelected(const char *filename) override
@@ -482,6 +518,7 @@ protected:
 	{
 		const auto now = Clock::now();
 		m_size.idle();
+		m_bar.idle();
 		// No answer from the DSP: say so rather than wait for ever.
 		if (m_romAsked && now - m_romAskedAt > std::chrono::seconds(20))
 		{
@@ -655,6 +692,7 @@ private:
 		drawTabs();
 		drawBody();
 		drawFooter();
+		m_bar.drawList();
 	}
 
 	void drawTabs()
@@ -1149,16 +1187,32 @@ private:
 		repaint();
 	}
 
+	// The hints on the left, the disclaimer on the right; in the Windows standalone MIDI IN
+	// and BUFFER between them, and the hints shorter.
 	void drawFooter()
 	{
 		const Theme &th = theme();
 		const float y = kH - kFooterH / 2;
+		const char *const disclaimer = "No Roland data included. Not affiliated with Roland.";
 		fontSize(12);
+		DGL_NAMESPACE::Rectangle<float> bounds;
+		const float right = kW - kMargin - textBounds(0, 0, disclaimer, nullptr, bounds) - 20;
+		const Rect midi { right - kMidiInW, y - kBarFieldH / 2, kMidiInW, kBarFieldH };
+		m_bar.place(midi, { midi.x - 8 - kBufferW, midi.y, kBufferW, kBarFieldH });
+		m_bar.setStyle(barStyle(th));
+		m_bar.drawFields();
+
+		const float left = m_bar.leftEdge(right + 20) - 20;
+		const bool narrow = left < right;
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(th.inkDim);
-		text(kMargin, y, "Click a pad to hear it (Shift: softer). Drag a knob or use the wheel, Shift: fine; click twice: reset.", nullptr);
+		const std::string hint = narrow
+			? "Pads: click, Shift: softer. Knobs: drag or wheel, Shift: fine; twice: reset."
+			: "Click a pad to hear it (Shift: softer). Drag a knob or use the wheel, Shift: fine; click twice: reset.";
+		text(kMargin, y, m_bar.fit(hint, left - kMargin, 12).c_str(), nullptr);
+		fontSize(12);
 		textAlign(ALIGN_RIGHT | ALIGN_MIDDLE);
-		text(kW - kMargin, y, "No Roland data included. Not affiliated with Roland.", nullptr);
+		text(kW - kMargin, y, disclaimer, nullptr);
 	}
 
 	// ---- the ROM setup -------------------------------------------------------------------------
@@ -1251,6 +1305,7 @@ private:
 	Clock::time_point m_romAskedAt {};
 
 	PanelSize m_size { *this, kW, kH };
+	StandaloneBar m_bar { *this, "Ostrich 7765", kH - kFooterH, kW };
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichUI)
 };

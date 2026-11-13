@@ -76,11 +76,8 @@ const char *const kRomSizes[kRomSlots] = { "2 x 32 KB", "512 KB", "32 KB" };
 // "machines": the running machine's id (empty while none runs), then id and name in turns.
 constexpr char kFieldSep = '\x1f';
 
-// MIDI IN, the Windows standalone only (MidiInput.hpp); "midiports" is empty elsewhere.
-// "midiports": the choice ("" off, "*" all inputs, else a port's name), the error (empty
-// if none), then the ports.  "midiin" takes "<n> <choice>"; "<n> ?" only rescans.
-constexpr const char *kMidiAll = "*";
-constexpr const char *kMidiRescan = "?";
+/// "midiin" and "midiports", the Windows standalone's own MIDI IN:
+/// shared/plugin/StandaloneMidi.hpp.
 
 // The display, sent as hex only when it changed (and once a second).
 struct PanelBlob

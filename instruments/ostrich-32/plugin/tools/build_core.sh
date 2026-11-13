@@ -87,6 +87,14 @@ else
 	echo "FAILED  (see $OUT/88emu-build.log)"; exit 1
 fi
 EMU88_LIB="$OUT/88emu/source/ronaldo/88emu/88lib/lib88emu.a"
+# 88emu_bundle is a custom target: it writes lib88emu.a on every build, changed or not.
+# This stamp is rewritten only when the library's content changes, and stands for it in
+# the checks below, so that an unchanged 88emu does not relink the plugins.
+EMU88_STAMP="$OUT/88emu.stamp"
+EMU88_SUM="$(sha256sum "$EMU88_LIB" | cut -d" " -f1)"
+if [ ! -f "$EMU88_STAMP" ] || [ "$(cat "$EMU88_STAMP")" != "$EMU88_SUM" ]; then
+	echo "$EMU88_SUM" > "$EMU88_STAMP"
+fi
 
 # --- our core ----------------------------------------------------------------------------
 CXXFLAGS=(-std=c++17 -O2 -g -Wall -I "$CORE" -I "$GM/source/ronaldo/88emu" -I "$GM/source/framework")
@@ -96,7 +104,7 @@ fail=0
 printf '  %-34s ' "plugin/core/mt32_core.cpp"
 OBJ="$OUT/obj/mt32_core.o"
 if [ -f "$OBJ" ] && [ "$OBJ" -nt "$CORE/mt32_core.cpp" ] && [ "$OBJ" -nt "$CORE/mt32_core.h" ] \
-		&& [ "$OBJ" -nt "$EMU88_LIB" ]; then
+		&& [ "$OBJ" -nt "$EMU88_STAMP" ]; then
 	echo "up to date"
 elif nice -n 19 "$CXX" "${CXXFLAGS[@]}" -c "$CORE/mt32_core.cpp" -o "$OBJ" 2> "$OBJ.log"; then
 	echo "ok"
@@ -106,7 +114,7 @@ fi
 # Archive only when the object or 88emu changed: a newer library makes the Makefile relink
 # the plugins, and it compares only this one (88emu is linked beside it).
 LIB="$OUT/libmt32core.a"
-if [ ! -f "$LIB" ] || [ "$OBJ" -nt "$LIB" ] || [ "$EMU88_LIB" -nt "$LIB" ]; then
+if [ ! -f "$LIB" ] || [ "$OBJ" -nt "$LIB" ] || [ "$EMU88_STAMP" -nt "$LIB" ]; then
 	rm -f "$LIB"
 	"$AR" rcs "$LIB" "$OBJ" && echo "  archived                           $LIB"
 else

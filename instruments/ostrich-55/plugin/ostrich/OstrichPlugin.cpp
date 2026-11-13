@@ -14,6 +14,7 @@
 #include "../../../../shared/plugin/MidiInput.hpp"
 #include "../../../../shared/plugin/Resampler.hpp"
 #include "../../../../shared/plugin/FileIO.hpp"
+#include "../../../../shared/plugin/Folders.hpp"
 #include "../../../../shared/plugin/ZipReader.hpp"
 
 #include <algorithm>
@@ -38,17 +39,9 @@ namespace {
 namespace fs = std::filesystem;
 using namespace ostrich;
 
-/// A path as UTF-8 in a std::string (C++20's u8string() is a different type).
-std::string pstr(const fs::path &p)
-{
-	const auto u = p.u8string();
-	return std::string(u.begin(), u.end());
-}
-
-fs::path upath(const std::string &s)
-{
-	return fs::path(reinterpret_cast<const char8_t *>(s.c_str()));
-}
+std::vector<fs::path> romDirs() { return ostrich::romDirs("OSTRICH55_ROMS", { "Ostrich 55" }); }
+std::vector<fs::path> installDirs() { return ostrich::installDirs("Ostrich 55"); }
+fs::path midiChoiceFile() { return ostrich::standaloneSettingFile("Ostrich 55", "standalone-midi-in.txt"); }
 
 /// The family this build plays.  Nuked-SC55 knows the later models too (mk2, SC-55st, ...);
 /// they need their own panels and the core's other rates, see ROADMAP.md.
@@ -67,60 +60,6 @@ bool plausibleSize(uintmax_t n)
 
 using ostrich::readFile;
 using ostrich::writeFile;
-
-/// Where the user puts the images, most specific first.  On Windows ProgramData comes
-/// first: a tool inside an MSIX package sees a virtualised %LOCALAPPDATA%, the DAW does
-/// not (as Ostrich 220 learnt).
-std::vector<fs::path> romDirs()
-{
-	std::vector<fs::path> dirs;
-	auto env = [&](const char *name, const char *tail) {
-		if (const char *v = std::getenv(name))
-			if (*v) dirs.push_back((upath(v) / upath(tail)).make_preferred());
-	};
-	env("OSTRICH55_ROMS", "");
-#ifdef _WIN32
-	env("PROGRAMDATA", "Ostrich 55/roms");
-	env("LOCALAPPDATA", "Ostrich 55/roms");
-	env("USERPROFILE", "Documents/Ostrich 55/roms");
-#else
-	env("XDG_DATA_HOME", "Ostrich 55/roms");
-	env("HOME", ".local/share/Ostrich 55/roms");
-	dirs.push_back("/usr/share/Ostrich 55/roms");
-#endif
-	return dirs;
-}
-
-/// Where images the user picks in the panel are copied to: the first of these that takes
-/// them.  romDirs() searches them all.
-std::vector<fs::path> installDirs()
-{
-	std::vector<fs::path> dirs;
-	auto env = [&](const char *name, const char *tail) {
-		if (const char *v = std::getenv(name))
-			if (*v) dirs.push_back((upath(v) / upath(tail)).make_preferred());
-	};
-#ifdef _WIN32
-	env("PROGRAMDATA", "Ostrich 55/roms");
-	env("LOCALAPPDATA", "Ostrich 55/roms");
-	env("USERPROFILE", "Documents/Ostrich 55/roms");
-#else
-	env("XDG_DATA_HOME", "Ostrich 55/roms");
-	env("HOME", ".local/share/Ostrich 55/roms");
-#endif
-	return dirs;
-}
-
-/// The Windows standalone's MIDI IN choice, per user (MidiInput.hpp); empty elsewhere.
-fs::path midiChoiceFile()
-{
-#ifdef _WIN32
-	if (const wchar_t *v = _wgetenv(L"LOCALAPPDATA"))
-		if (*v)
-			return fs::path(v) / L"Ostrich 55" / L"standalone-midi-in.txt";
-#endif
-	return fs::path();
-}
 
 /// What one or more folders hold, by SHA-256 whatever the names: for every ROM set
 /// Nuked-SC55 knows, the images found for it.  An image out of a zip has the zip as

@@ -16,6 +16,7 @@
 #include "mt32_core.h"
 #include "../../../../shared/plugin/MidiInput.hpp"
 #include "../../../../shared/plugin/FileIO.hpp"
+#include "../../../../shared/plugin/Folders.hpp"
 #include "../../../../shared/plugin/ZipReader.hpp"
 
 #include <algorithm>
@@ -39,17 +40,9 @@ namespace {
 namespace fs = std::filesystem;
 using namespace ostrich;
 
-/// A path as UTF-8 in a std::string (C++20's u8string() is a different type).
-std::string pstr(const fs::path &p)
-{
-	const auto u = p.u8string();
-	return std::string(u.begin(), u.end());
-}
-
-fs::path upath(const std::string &s)
-{
-	return fs::path(reinterpret_cast<const char8_t *>(s.c_str()));
-}
+std::vector<fs::path> romDirs() { return ostrich::romDirs("OSTRICH32_ROMS", { "Ostrich 32" }); }
+std::vector<fs::path> installDirs() { return ostrich::installDirs("Ostrich 32"); }
+fs::path midiChoiceFile() { return ostrich::standaloneSettingFile("Ostrich 32", "standalone-midi-in.txt"); }
 
 /// The machine a new instance runs when its images are there: the old MT-32's first
 /// firmware, the one the owner's unit of 1987 had or was close to.
@@ -65,60 +58,6 @@ bool plausibleSize(uintmax_t n)
 
 using ostrich::readFile;
 using ostrich::writeFile;
-
-/// Where the user puts the images, most specific first.  On Windows ProgramData comes
-/// first: a tool inside an MSIX package sees a virtualised %LOCALAPPDATA%, the DAW does
-/// not (as Ostrich 220 learnt).
-std::vector<fs::path> romDirs()
-{
-	std::vector<fs::path> dirs;
-	auto env = [&](const char *name, const char *tail) {
-		if (const char *v = std::getenv(name))
-			if (*v) dirs.push_back((upath(v) / upath(tail)).make_preferred());
-	};
-	env("OSTRICH32_ROMS", "");
-#ifdef _WIN32
-	env("PROGRAMDATA", "Ostrich 32/roms");
-	env("LOCALAPPDATA", "Ostrich 32/roms");
-	env("USERPROFILE", "Documents/Ostrich 32/roms");
-#else
-	env("XDG_DATA_HOME", "Ostrich 32/roms");
-	env("HOME", ".local/share/Ostrich 32/roms");
-	dirs.push_back("/usr/share/Ostrich 32/roms");
-#endif
-	return dirs;
-}
-
-/// Where images the user picks in the panel are copied to: the first of these that takes
-/// them.  romDirs() searches them all.
-std::vector<fs::path> installDirs()
-{
-	std::vector<fs::path> dirs;
-	auto env = [&](const char *name, const char *tail) {
-		if (const char *v = std::getenv(name))
-			if (*v) dirs.push_back((upath(v) / upath(tail)).make_preferred());
-	};
-#ifdef _WIN32
-	env("PROGRAMDATA", "Ostrich 32/roms");
-	env("LOCALAPPDATA", "Ostrich 32/roms");
-	env("USERPROFILE", "Documents/Ostrich 32/roms");
-#else
-	env("XDG_DATA_HOME", "Ostrich 32/roms");
-	env("HOME", ".local/share/Ostrich 32/roms");
-#endif
-	return dirs;
-}
-
-/// The Windows standalone's MIDI IN choice, per user (MidiInput.hpp); empty elsewhere.
-fs::path midiChoiceFile()
-{
-#ifdef _WIN32
-	if (const wchar_t *v = _wgetenv(L"LOCALAPPDATA"))
-		if (*v)
-			return fs::path(v) / L"Ostrich 32" / L"standalone-midi-in.txt";
-#endif
-	return fs::path();
-}
 
 /// "mt32old/1.04" -> "MT-32 1.04", for the panel.
 std::string machineName(const std::string &id)

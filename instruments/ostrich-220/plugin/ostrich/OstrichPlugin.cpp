@@ -14,6 +14,7 @@
 #include "u220_fx.h"
 #include "DacStage.hpp"
 #include "../../../../shared/plugin/FileIO.hpp"
+#include "../../../../shared/plugin/Folders.hpp"
 #include "../../../../shared/plugin/ZipReader.hpp"
 
 #include <algorithm>
@@ -37,12 +38,9 @@ namespace {
 namespace fs = std::filesystem;
 using namespace ostrich;
 
-/// A path as UTF-8 in a std::string (C++20's u8string() is a different type).
-std::string pstr(const fs::path &p)
-{
-	const auto u = p.u8string();
-	return std::string(u.begin(), u.end());
-}
+// "Ostrich 220", and the "Ostrich" of the test builds before the first release.
+std::vector<fs::path> romDirs() { return ostrich::romDirs("OSTRICH_ROMS", { "Ostrich 220", "Ostrich" }); }
+std::vector<fs::path> installDirs() { return ostrich::installDirs("Ostrich 220"); }
 
 // ---- SHA-1, to recognise the ROM images whatever they are called -----------------
 
@@ -131,54 +129,6 @@ const char *const kSlotNames[kRomSlots] ={ "A", "B", "C", "D", "E", "F", "firmwa
 
 using ostrich::readFile;
 using ostrich::writeFile;
-
-/// Where the user puts the images, most specific first.  On Windows ProgramData comes
-/// first: Cubase runs outside the MSIX sandbox some tools live in, and %LOCALAPPDATA% is
-/// virtualised there -- a folder made by such a tool is invisible to the host.
-std::vector<fs::path> romDirs()
-{
-	std::vector<fs::path> dirs;
-	auto env = [&](const char *name, const char *tail) {
-		if (const char *v = std::getenv(name))
-			if (*v) dirs.push_back((fs::u8path(v) / fs::u8path(tail)).make_preferred());
-	};
-	// "Ostrich 220", and the "Ostrich" of the test builds before the first release.
-	env("OSTRICH_ROMS", "");
-	for (const char *name : { "Ostrich 220", "Ostrich" })
-	{
-		const std::string roms = std::string(name) + "/roms";
-#ifdef _WIN32
-		env("PROGRAMDATA", roms.c_str());
-		env("LOCALAPPDATA", roms.c_str());
-		env("USERPROFILE", ("Documents/" + roms).c_str());
-#else
-		env("XDG_DATA_HOME", roms.c_str());
-		env("HOME", (".local/share/" + roms).c_str());
-		dirs.push_back("/usr/share/" + roms);
-#endif
-	}
-	return dirs;
-}
-
-/// Where images the user picks in the panel are copied to: the first of these that takes
-/// them.  romDirs() searches them all.
-std::vector<fs::path> installDirs()
-{
-	std::vector<fs::path> dirs;
-	auto env = [&](const char *name, const char *tail) {
-		if (const char *v = std::getenv(name))
-			if (*v) dirs.push_back((fs::u8path(v) / fs::u8path(tail)).make_preferred());
-	};
-#ifdef _WIN32
-	env("PROGRAMDATA", "Ostrich 220/roms");
-	env("LOCALAPPDATA", "Ostrich 220/roms");
-	env("USERPROFILE", "Documents/Ostrich 220/roms");
-#else
-	env("XDG_DATA_HOME", "Ostrich 220/roms");
-	env("HOME", ".local/share/Ostrich 220/roms");
-#endif
-	return dirs;
-}
 
 /// A card file's bytes: the file itself, or out of a zip (MAME's software list keeps a card
 /// as sn_u110_02.zip) the entry that is a known card, else its only entry of a card's size.
@@ -1378,7 +1328,7 @@ private:
 		}
 		FILE *f = nullptr;
 #ifdef _WIN32
-		f = _wfopen(fs::u8path(path).c_str(), L"wb");
+		f = _wfopen(upath(path).c_str(), L"wb");
 #else
 		f = std::fopen(path.c_str(), "wb");
 #endif
@@ -1400,7 +1350,7 @@ private:
 	// not -- another device ID, Rx SysEx off -- changes nothing, and the status says so.
 	void loadSysex(const std::string &path)
 	{
-		const auto msgs = parseDump(readFile(fs::u8path(path), 0x200000));
+		const auto msgs = parseDump(readFile(upath(path), 0x200000));
 		if (msgs.empty())
 		{
 			setStatus("SysEx: " + path + " holds no Roland SysEx with a good checksum.");
@@ -1458,7 +1408,7 @@ private:
 		std::string info;
 		if (!path.empty())
 		{
-			const fs::path p = fs::u8path(path);
+			const fs::path p = upath(path);
 			const std::string name = pstr(p.filename());
 			std::vector<uint8_t> raw = readCardFile(p);
 			std::error_code ec;
@@ -1801,7 +1751,7 @@ private:
 			return;
 		if (m_romThread.joinable())
 			m_romThread.join();
-		const fs::path picked = fs::u8path(value + used);
+		const fs::path picked = upath(value + used);
 		m_romThread = std::thread([this, picked] {
 			installRoms(picked);
 			m_romBusy.store(false);
@@ -1861,10 +1811,10 @@ private:
 				if (!ok)
 					break;
 				// Never over a file of the same name: the user's, whatever it is.
-				const fs::path name = fs::u8path(c.name);
+				const fs::path name = upath(c.name);
 				fs::path dest = to / name;
 				for (int i = 2; fs::exists(dest, ec); i ++)
-					dest = to / fs::u8path(pstr(name.stem()) + " (" + std::to_string(i) + ")" + pstr(name.extension()));
+					dest = to / upath(pstr(name.stem()) + " (" + std::to_string(i) + ")" + pstr(name.extension()));
 				if (c.data != nullptr)
 				{
 					ok = writeFile(dest, *c.data);

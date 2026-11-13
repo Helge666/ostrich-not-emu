@@ -15,8 +15,23 @@ and a standalone program, and a panel that looks and handles like the hardware.
 
 You need your own ROM images. **This repository contains no Roland data and never will.**
 
-**Status: in development; nothing to download yet.** The plugin builds and plays, with a
-plain first panel (display, switches, knob); the panel after the unit comes next.
+**[Download Ostrich 32](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich32-v0.1.0)** (Windows and Linux zips), or
+build it from source ([BUILDING.md](BUILDING.md)).
+
+**Status: first release, early.** It plays, with a plain first panel (display, switches,
+knob); the panel after the unit comes next ([ROADMAP.md](ROADMAP.md)).
+
+## Installing (Windows)
+
+1. On the release page, under *Assets*, download `Ostrich32-Windows.zip` and unpack it.
+2. Copy `Ostrich32.vst3` to `C:\Program Files\Common Files\VST3\`, or `Ostrich32.clap` to
+   `C:\Program Files\Common Files\CLAP\`. The zip's `INSTALL.txt` also covers the
+   standalone program and Linux.
+3. Load Ostrich 32 in your DAW (or start `Ostrich32.exe`). The first time, it asks for the
+   ROM images: click **CHOOSE FILE** and pick any one of your MT-32 or CM-32L ROM images, or
+   a zip with them. The others in the same folder are found by their contents and copied to
+   `C:\ProgramData\Ostrich 32\roms\`. Which images: [roms/README.md](roms/README.md).
+4. The MT-32 hears PART 1 on MIDI channel 2 and the rhythm part on channel 10.
 
 ## Origin and thanks
 

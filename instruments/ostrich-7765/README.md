@@ -4,10 +4,10 @@ The sounds of four sample-based **Roland drum machines** of the 1980s as a VST3/
 and a standalone program: **TR-505, TR-626, TR-707 and TR-727**. A non-commercial fan
 project.
 
-**[Download the latest release](https://github.com/Helge666/ostrich7765/releases/latest)**
+**[Download the latest release](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich7765-v0.2.0)**
 for Windows or Linux, free of charge. [How to install it](#install).
 
-> **First release, still growing.** The TR-505, TR-626 and TR-707 play, each with its panel,
+> **Still growing.** The TR-505, TR-626 and TR-707 play, each with its panel,
 > the TR-626's pitch, vintage timing and mono outputs. The TR-727 waits for its sound ROMs.
 > See [ROADMAP.md](ROADMAP.md).
 
@@ -32,7 +32,7 @@ You need your own ROM images. **This repository contains no Roland data and neve
 
 ## Install
 
-1. On the [release page](https://github.com/Helge666/ostrich7765/releases/latest), under
+1. On the [release page](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich7765-v0.2.0), under
    *Assets*, download `Ostrich7765-Windows.zip` or `Ostrich7765-Linux.zip` and unpack it.
 2. Copy the folder `Ostrich7765.vst3` to `C:\Program Files\Common Files\VST3\` (Windows) or
    `~/.vst3/` (Linux), and let your music program scan for new plugins. The zip's

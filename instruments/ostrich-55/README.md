@@ -34,7 +34,7 @@ standalone on Linux. No macOS build.
 
 ## Installing (Windows)
 
-**[Download Ostrich 55](https://github.com/Helge666/ostrich55/releases/latest)** (Windows
+**[Download Ostrich 55](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich55-v0.1.1)** (Windows
 and Linux zips; an installer will follow), or build it from source
 ([BUILDING.md](BUILDING.md)).
 

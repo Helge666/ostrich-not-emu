@@ -103,6 +103,12 @@ licence texts in the zips) and `release-text.sh` (INSTALL.txt and the release no
 `<tag>` is `ostrich32`, `ostrich55`, `ostrich220` or `ostrich7765`. The version in a tag
 must be the one in the instrument's source (`tools/ci/version.sh`), or the run fails.
 
+A release: raise the version in the source (`plugin/ostrich/Version.hpp`, or
+`d_version` in `OstrichPlugin.cpp`), point the README's download link at the new tag
+(`.../releases/tag/<tag>-v1.2.3`; GitHub's `releases/latest` is one for the whole
+repository), write what is new to `ci/changes/1.2.3.md` (it goes into the release notes as
+"New in 1.2.3"), commit, then tag and push the tag.
+
 By hand, after `make` and `make win` in an instrument: `tools/ci/smoke.sh 55`,
 `tools/ci/check-imports.sh 55`, `tools/ci/package.sh 55 0.1.0 /tmp/dist`.
 

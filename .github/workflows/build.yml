@@ -256,6 +256,13 @@ jobs:
           load_instrument "$i"
           version="$(tools/ci/version.sh "$i" "$GITHUB_REF")"
           "instruments/$i/ci/release-text.sh" notes "$version" > notes.md
+          # ci/changes/<version>.md, if there is one: after the first paragraph.
+          changes="instruments/$i/ci/changes/$version.md"
+          if [ -f "$changes" ]; then
+            awk -v f="$changes" -v v="$version" 'done || NF { print; next }
+              { print; print "## New in " v; print ""; while ((getline l < f) > 0) print l; print ""; done = 1 }' \
+              notes.md > notes.tmp && mv notes.tmp notes.md
+          fi
           cat notes.md >> "$GITHUB_STEP_SUMMARY"
           echo "title=$TITLE $version" >> "$GITHUB_OUTPUT"
           ls -l dist

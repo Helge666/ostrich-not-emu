@@ -9,7 +9,7 @@ allocation, the six parts and the rhythm part, MIDI, SysEx, the menus, the displ
 
 You need your own ROM images. **This repository contains no Roland data and never will.**
 
-**[Download Ostrich 220](https://github.com/Helge666/ostrich220/releases/latest)** (Windows
+**[Download Ostrich 220](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich220-v0.2.0)** (Windows
 and Linux; see [Download](#download) below).
 
 ![Ostrich 220](docs/ostrich220.png)
@@ -39,7 +39,7 @@ standalone on Linux. No macOS build.
 
 ## Download
 
-**[Download the latest version](https://github.com/Helge666/ostrich220/releases/latest)** —
+**[Download the latest version](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich220-v0.2.0)** —
 no compiling needed.
 
 On that page, under **Assets**, click `Ostrich220-Windows.zip` (or `Ostrich220-Linux.zip`)

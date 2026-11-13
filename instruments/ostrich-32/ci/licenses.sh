@@ -19,9 +19,10 @@ cp "$gm/source/cpu/dsp56300/source/asmjit/LICENSE.md" "$out/AsmJit-zlib.txt"
 cp "$gm/source/3rdparty/libresample/LICENSE-BSD.txt" "$out/libresample-BSD-3-Clause.txt"
 cp "$gm/source/3rdparty/libresample/LICENSE-LGPL.txt" "$out/libresample-LGPL-2.1.txt"
 # Musashi (mc68k): its licence is part of its readme.
-sed -n '/^LICENSE AND COPYRIGHT/,/^SOFTWARE\./p' "$gm/source/cpu/mc68k/Musashi/readme.txt" \
+sed -n '/^LICENSE AND COPYRIGHT/,/^THE SOFTWARE\./p' "$gm/source/cpu/mc68k/Musashi/readme.txt" \
 	> "$out/Musashi-MIT.txt"
 grep -q "Karl Stenerud" "$out/Musashi-MIT.txt"
+tail -1 "$out/Musashi-MIT.txt" | grep -q "^THE SOFTWARE\."
 # Nuked-MT32 (GPL-2.0-or-later) and Munt (LGPL-2.1-or-later), from which parts of 88emu
 # derive, ship no licence file inside gearmulator: the standard texts.
 cp ../../shared/licenses/GPL-2.0.txt "$out/GPL-2.0-Nuked-MT32.txt"

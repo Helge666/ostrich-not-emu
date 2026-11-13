@@ -15,3 +15,24 @@ You need your own ROM images. **This repository contains no manufacturer data an
 will.**
 
 Releases are tagged per instrument: `ostrich55-v0.1.0`, `ostrich220-v0.1.4`, ...
+
+## Build and install
+
+Everything builds on Linux; Windows binaries are cross-compiled there with mingw-w64.
+Each instrument's BUILDING.md lists what it needs.
+
+```sh
+tools/build.sh [instrument ...]        # Linux + Windows builds, then installs the Linux plugins
+tools/install-plugins.sh [instrument]  # Linux: ~/.vst3, ~/.clap, ~/.local/bin
+```
+
+From Windows, with the build host reachable over SSH:
+
+```powershell
+tools\build.ps1 [-Instruments 32,55]   # builds on the build host, installs on both sides
+tools\install-plugins.ps1              # only fetch and install the Windows builds
+```
+
+On Windows the plugins go to the user's own folders, `%LOCALAPPDATA%\Programs\Common\VST3`
+and `...\CLAP`, the standalone programs to `%LOCALAPPDATA%\Programs\Ostrich-not-Emu`; no
+administrator rights are needed.

@@ -32,7 +32,7 @@ TARGETS = vst3 clap jack
 
 all:
 	@../tools/build_core.sh
-	@for f in bin/$(NAME).clap bin/$(NAME) bin/$(NAME).vst3/Contents/x86_64-linux/$(NAME).so; do \
+	@for f in ../bin/$(NAME).clap ../bin/$(NAME) ../bin/$(NAME).vst3/Contents/x86_64-linux/$(NAME).so; do \
 		if [ -e "$$f" ] && [ "$(CORE_LIB)" -nt "$$f" ]; then rm -f "$$f"; fi; done
 	@$(MAKE) --no-print-directory $(TARGETS)
 

@@ -10,7 +10,7 @@
 #include <system_error>
 
 #include "Sha1.hpp"
-#include "ZipReader.hpp"
+#include "../../../../../shared/plugin/ZipReader.hpp"
 
 namespace ostrich {
 

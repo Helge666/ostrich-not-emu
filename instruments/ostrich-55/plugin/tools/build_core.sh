@@ -86,8 +86,16 @@ compile "$BACK/sha/sha224-256.c" "$OUT/obj/sha224-256.o" "$CC" "${CFLAGS[@]}" -I
 compile "$HERE/plugin/core/sc55_core.cpp" "$OUT/obj/sc55_core.o" "$CXX" "${CXXFLAGS[@]}" "${INCS[@]}"
 [ $fail -ne 0 ] && exit 1
 
-rm -f "$OUT/libsc55core.a"
-"$AR" rcs "$OUT/libsc55core.a" "${OBJS[@]}" && echo "  archived                           $OUT/libsc55core.a"
+# Archive only when an object changed: a newer library makes the Makefile relink the plugins.
+LIB="$OUT/libsc55core.a"
+stale=0; [ -f "$LIB" ] || stale=1
+for o in "${OBJS[@]}"; do [ "$o" -nt "$LIB" ] && stale=1; done
+if [ $stale = 1 ]; then
+	rm -f "$LIB"
+	"$AR" rcs "$LIB" "${OBJS[@]}" && echo "  archived                           $LIB"
+else
+	echo "  up to date                         $LIB"
+fi
 
 EXE=""
 LDFLAGS=()

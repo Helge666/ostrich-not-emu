@@ -13,7 +13,7 @@
 #ifndef OSTRICH_DAC_STAGE_HPP
 #define OSTRICH_DAC_STAGE_HPP
 
-#include "Resampler.hpp"
+#include "../../../../shared/plugin/Resampler.hpp"
 
 #include <algorithm>
 #include <cmath>

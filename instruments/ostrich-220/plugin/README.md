@@ -54,7 +54,7 @@ devices use nothing of the plugin, so they can go back to MAME.
   (`romset`).
 - ROM setup: while images are missing the panel shows them in place of the display. A
   picked file's folder is searched by SHA-1 on a thread of its own, loose files first,
-  then zips (`ZipReader.hpp`: a zip's directory lists each entry's CRC32, so only an entry
+  then zips (`shared/plugin/ZipReader.hpp`: a zip's directory lists each entry's CRC32, so only an entry
   that matches a known image's is unpacked). What the ROM folders lack is written to the
   first install folder that takes it (ProgramData on Windows) as plain files, and the
   machine boots without a reload. A session's memory that arrives meanwhile is held.

@@ -103,8 +103,15 @@ elif nice -n 19 "$CXX" "${CXXFLAGS[@]}" -c "$CORE/mt32_core.cpp" -o "$OBJ" 2> "$
 else
 	echo "FAILED  (see $OBJ.log)"; exit 1
 fi
-rm -f "$OUT/libmt32core.a"
-"$AR" rcs "$OUT/libmt32core.a" "$OBJ" && echo "  archived                           $OUT/libmt32core.a"
+# Archive only when the object or 88emu changed: a newer library makes the Makefile relink
+# the plugins, and it compares only this one (88emu is linked beside it).
+LIB="$OUT/libmt32core.a"
+if [ ! -f "$LIB" ] || [ "$OBJ" -nt "$LIB" ] || [ "$EMU88_LIB" -nt "$LIB" ]; then
+	rm -f "$LIB"
+	"$AR" rcs "$LIB" "$OBJ" && echo "  archived                           $LIB"
+else
+	echo "  up to date                         $LIB"
+fi
 
 # --- mt32_render -------------------------------------------------------------------------
 EXE=""

@@ -11,7 +11,7 @@ plugin/
              resampler from the core's rate to the host's, the zip reader, MidiInput
              (the Windows standalone's own MIDI IN, WinMM).
   tools/     build_core.sh, sc55_render, ostrich_clap_render.
-  dpf/       DPF, a submodule: our fork Helge666/DPF, branch logan (DPF-LOGAN.md).
+  dpf/       DPF, a submodule: our fork Helge666/DPF, branch logan (DPF-LOGAN.md at the repository root).
 ```
 
 The core is GPL-2.0-or-later like Nuked-SC55, so it could go back there; it uses nothing of

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Ostrich 32 (from Ostrich 55) -- MIDI IN for the Windows standalone.  DPF's native standalone opens no MIDI
+// Ostrich != Emu (shared/plugin; Ostrich 32 and 55) -- MIDI IN for the Windows standalone.  DPF's native standalone opens no MIDI
 // port unless asked, and then all of them, with no way to choose; so the plugin opens the
 // port the panel picks itself, through WinMM.  Short messages and SysEx are passed on as
-// bytes, as a cable would: the MT-32's firmware parses them.  Each message carries the time
+// bytes, as a cable would: the unit's firmware parses them.  Each message carries the time
 // it came in (now()), so that the audio thread can put it at its place in a block.
 //
 // Elsewhere (Linux: JACK has its own MIDI ports; plugins: the host's) it offers nothing.

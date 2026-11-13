@@ -7,8 +7,8 @@ later ([LICENSE](LICENSE)). It contains, or is built from, the following.
 |---|---|---|---|
 | Nuked-SC55 | `nuked-sc55/` (submodule): the emulation of the SC-55's MCUs, PCM chip, LCD and its font; the backend library | GPL-2.0-or-later (`nuked-sc55/LICENSE`) | nukeykt; J.C. Moyer; the contributors named in its README |
 | SHA-224/256 (RFC 6234) | `nuked-sc55/src/backend/sha/`, used through Nuked-SC55 to recognise the ROM images | BSD-3-Clause (`sha.h`) | IETF Trust and the authors of RFC 6234 |
-| Resampler | `plugin/ostrich/Resampler.hpp`, from emu110 / Voltaire 110 by way of Ostrich 220 | GPL-3.0-or-later | Elliott H. Liggett |
-| Ostrich 220 | the plugin's structure, the ROM setup, `ZipReader.hpp`, `ostrich_clap_render.c` | GPL-3.0-or-later | Helge Thorsten Kautz and contributors |
+| Resampler | `shared/plugin/Resampler.hpp` (repository root), from emu110 / Voltaire 110 by way of Ostrich 220 | GPL-3.0-or-later | Elliott H. Liggett |
+| Ostrich 220 | the plugin's structure, the ROM setup, `shared/plugin/ZipReader.hpp`, `ostrich_clap_render.c` | GPL-3.0-or-later | Helge Thorsten Kautz and contributors |
 | DPF | `third_party/dpf/` (submodule) | ISC | Filipe Coelho |
 | pugl | `third_party/dpf/dgl/src/pugl-upstream` | ISC | David Robillard |
 | NanoVG | `third_party/dpf/dgl/src/nanovg` | zlib | Mikko Mononen |

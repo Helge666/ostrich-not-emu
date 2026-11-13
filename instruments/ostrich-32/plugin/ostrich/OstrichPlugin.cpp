@@ -14,8 +14,9 @@
 #include "Version.hpp"
 
 #include "mt32_core.h"
-#include "MidiInput.hpp"
-#include "ZipReader.hpp"
+#include "../../../../shared/plugin/MidiInput.hpp"
+#include "../../../../shared/plugin/FileIO.hpp"
+#include "../../../../shared/plugin/ZipReader.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -61,41 +62,9 @@ bool plausibleSize(uintmax_t n)
 	return n >= 0x2000 && n <= 0x200000 && (n & (n - 1)) == 0;
 }
 
-std::vector<uint8_t> readFile(const fs::path &p, size_t limit = 0x200000)
-{
-	std::vector<uint8_t> data;
-	std::error_code ec;
-	const auto n = fs::file_size(p, ec);
-	if (ec || n == 0 || n > limit)
-		return data;
-	FILE *f = nullptr;
-#ifdef _WIN32
-	f = _wfopen(p.c_str(), L"rb");
-#else
-	f = std::fopen(p.c_str(), "rb");
-#endif
-	if (!f)
-		return data;
-	data.resize(size_t(n));
-	if (std::fread(data.data(), 1, data.size(), f) != data.size())
-		data.clear();
-	std::fclose(f);
-	return data;
-}
 
-bool writeFile(const fs::path &p, const std::vector<uint8_t> &data)
-{
-	FILE *f = nullptr;
-#ifdef _WIN32
-	f = _wfopen(p.c_str(), L"wb");
-#else
-	f = std::fopen(p.c_str(), "wb");
-#endif
-	if (!f)
-		return false;
-	const bool ok = std::fwrite(data.data(), 1, data.size(), f) == data.size();
-	return std::fclose(f) == 0 && ok;
-}
+using ostrich::readFile;
+using ostrich::writeFile;
 
 /// Where the user puts the images, most specific first.  On Windows ProgramData comes
 /// first: a tool inside an MSIX package sees a virtualised %LOCALAPPDATA%, the DAW does

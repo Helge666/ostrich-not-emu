@@ -85,8 +85,16 @@ for src in "${SOURCES[@]}"; do
 done
 [ $fail -ne 0 ] && exit 1
 
-rm -f "$OUT/libu220core.a"
-"$AR" rcs "$OUT/libu220core.a" "${OBJS[@]}" && echo "  archived                 $OUT/libu220core.a"
+# Archive only when an object changed: a newer library makes the Makefile relink the plugins.
+LIB="$OUT/libu220core.a"
+stale=0; [ -f "$LIB" ] || stale=1
+for o in "${OBJS[@]}"; do [ "$o" -nt "$LIB" ] && stale=1; done
+if [ $stale = 1 ]; then
+	rm -f "$LIB"
+	"$AR" rcs "$LIB" "${OBJS[@]}" && echo "  archived                 $LIB"
+else
+	echo "  up to date               $LIB"
+fi
 
 EXE=""
 [ "$CROSS_WINDOWS" = 1 ] && EXE=".exe"

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Ostrich 7765 -- ROM images out of zip files, as MAME keeps them (tr707.zip); from Ostrich 220.
+// Ostrich != Emu (shared/plugin; all instruments) -- ROM images out of zip files, as MAME
+// keeps them (u220.zip, sc55.zip, mt32.zip, tr707.zip).
 // Only what that needs: the central directory, stored and deflated entries, CRC-checked.
 // No zip64, no encryption, no other methods: such entries are skipped.  The directory alone
 // says each entry's size and CRC32, so a folder of many zips costs a few reads per zip;

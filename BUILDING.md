@@ -61,9 +61,10 @@ and `make win` (Windows -> `instruments/<name>/plugin/ostrich/bin-win`), at `-j5
 By hand, in an instrument's `plugin/ostrich`: `make -j5` and `make -j5 win`.
 
 From Windows, `tools\build.ps1` runs `tools/build.sh` on the build host over SSH and then
-`tools\install-plugins.ps1`, which fetches the Windows builds and puts them into the user's
-`%LOCALAPPDATA%\Programs\Common\VST3` and `...\CLAP` (standalones:
-`%LOCALAPPDATA%\Programs\Ostrich-not-Emu`). No administrator rights are needed. The build
+`tools\install-plugins.ps1`, which fetches the Windows builds and puts them into
+`C:\Program Files\Common Files\VST3` and `...\CLAP` (standalones:
+`C:\Program Files\Ostrich-not-Emu`). Windows asks once for administrator rights; copies
+an earlier version put into the user's own folders are removed. The build
 host must have the commit checked out that the Windows checkout has (`git push kk2 main`).
 
 ## 4. Checking a change

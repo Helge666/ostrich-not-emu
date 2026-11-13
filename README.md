@@ -33,6 +33,6 @@ tools\build.ps1 [-Instruments 32,55]   # builds on the build host, installs on b
 tools\install-plugins.ps1              # only fetch and install the Windows builds
 ```
 
-On Windows the plugins go to the user's own folders, `%LOCALAPPDATA%\Programs\Common\VST3`
-and `...\CLAP`, the standalone programs to `%LOCALAPPDATA%\Programs\Ostrich-not-Emu`; no
-administrator rights are needed.
+On Windows the plugins go where hosts look for them, `C:\Program Files\Common Files\VST3`
+and `...\CLAP`, the standalone programs to `C:\Program Files\Ostrich-not-Emu`; Windows asks
+once for administrator rights.

@@ -54,6 +54,8 @@ BUILDING.md says how to build and check; DPF-LOGAN.md what our DPF fork is.
 - The emulation forks (mame, Nuked-SC55, gearmulator, dsp56300) carry our commits on a
   branch `ostrich`; DPF and pugl on `logan`, shared with the LOGAN plugins.
 - Releases are tagged per instrument: `ostrich55-v0.1.0`, `ostrich220-v0.1.4`, ...
-- On Windows the plugins are installed per user (`%LOCALAPPDATA%\Programs\Common\VST3`,
-  `...\CLAP`); files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%`
-  are invisible to the DAW, so the ROM folders are under `C:\ProgramData`.
+- On Windows `tools\install-plugins.ps1` installs to `C:\Program Files\Common Files\VST3`
+  and `...\CLAP` (the owner's choice: the usual place, one UAC prompt per install), the
+  standalones to `C:\Program Files\Ostrich-not-Emu`. Files written by tools inside a
+  packaged (MSIX) app under `%LOCALAPPDATA%` are invisible to the DAW, so the ROM folders
+  are under `C:\ProgramData`.

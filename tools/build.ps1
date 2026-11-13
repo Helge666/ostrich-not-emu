@@ -8,7 +8,8 @@
 # 1. checks that the build host has the commit checked out here (push first otherwise:
 #    git push kk2 main)
 # 2. runs tools/build.sh there: Linux and Windows builds, Linux plugins installed there
-# 3. runs tools\install-plugins.ps1 here: Windows plugins into the user's VST3/CLAP folders
+# 3. runs tools\install-plugins.ps1 here: Windows plugins into C:\Program Files\Common Files\VST3
+#    and ...\CLAP (one UAC prompt)
 
 param(
     [string[]]$Instruments = @(),

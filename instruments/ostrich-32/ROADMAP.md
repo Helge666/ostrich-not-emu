@@ -44,8 +44,9 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       sample-accurate MIDI, the display and buttons for finding sounds, and the early
       firmwares selectable (v1.04 default, 1.05 to 1.07 to try). SysEx stays planned (DOS
       games load their sounds with it), but after the basics.
-- [ ] The owner's first look on Windows: the VST3 in Cubase (installed per user in
-      `%LOCALAPPDATA%\Programs\Common\VST3`, the CLAP in `...\Common\CLAP`), the switches
+- [ ] The owner's first look on Windows: the VST3 in Cubase (installed by
+      `tools\install-plugins.ps1` in `C:\Program Files\Common Files\VST3`, the CLAP in
+      `...\Common Files\CLAP`; from the monorepo it works in Cubase, 13.11.2026), the switches
       and the knob against the unit's behaviour, switching the control ROM. Seen in the
       standalone (12.11.2026): the ROMs from a zip are taken; a keyboard plays once it
       sends on channel 2. The VST3 in Cubase (12.11.2026): playable latency; switches,
@@ -55,10 +56,13 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       latency is unplayable even at 64 frames (as for Ostrich 55: WASAPI shared mode
       through RtAudio calls in bursts of a device period). Lower latency there needs
       WASAPI low-latency shared mode or ASIO in our DPF fork, with the owner.
-- [ ] Channel 1 for a keyboard in the standalone: the MT-32 hears its parts on channels
-      2-10 (PART 1 = 2, RHYTHM = 10) and nothing on 1, so a keyboard on channel 1 stays
-      silent. Perhaps a switch in the bar that hands channel 1 to PART 1 (an extra the unit
-      does not have; decide with the owner).
+- [ ] **Part = Ch** (the owner's decision, 13.11.2026): a checkbox in the bar, on by
+      default. While it is on, incoming MIDI on channels 1-5 goes to the MT-32 on 2-6, so
+      that the parts the display shows (1-5) match the MIDI channels; a keyboard on
+      channel 1 plays PART 1. The MT-32 itself hears PART 1 on channel 2 and nothing on 1
+      (RHYTHM on 10). Its state is kept in the session. Still to settle with the owner:
+      what incoming channels 6-9 do while it is on (6 would reach the part that 5 now
+      reaches).
 - [ ] SysEx in: CLAP and standalone pass it; VST3 needs the DPF fork, as for Ostrich 55.
 - [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
       dot matrix (the font of its controller), the body, the switches and the knob after
@@ -71,7 +75,7 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       once per block or less, or find an allocation-free way.
 - [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
-      publishes a release. Written 13.11.2026; green on GitHub still to be seen. 88emu's
+      publishes a release. Written 13.11.2026; green on GitHub (13.11.2026). 88emu's
       build needs about 660 MB of shallow submodules; cache them if it is slow.
 - [x] GitHub: part of the monorepo `Helge666/ostrich-not-emu` instead of a repository of
       its own (13.11.2026).

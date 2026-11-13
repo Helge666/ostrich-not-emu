@@ -14,6 +14,7 @@
 #include "DistrhoStandaloneUtils.hpp"
 #include "OstrichShared.hpp"
 #include "../../../../shared/plugin/PanelSize.hpp"
+#include "../../../../shared/plugin/StandaloneBar.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -23,9 +24,6 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-# include <direct.h>
-#endif
 
 START_NAMESPACE_DISTRHO
 
@@ -39,8 +37,7 @@ constexpr float kW = 1350.0f, kPanelH = 250.0f;
 constexpr float kH = kW * DISTRHO_UI_DEFAULT_HEIGHT / DISTRHO_UI_DEFAULT_WIDTH;
 constexpr float kBarY = kPanelH, kBarH = kH - kPanelH;
 
-struct Rect { float x, y, w, h; bool contains(float px, float py) const
-	{ return px >= x && px < x + w && py >= y && py < y + h; } };
+using Rect = ostrich::BarRect;
 
 // The LCD: 20 characters in one row, behind a bezel.
 const Rect kLcd { 112.0f, 92.0f, 560.0f, 76.0f };
@@ -66,12 +63,6 @@ constexpr float kBarBtnH = 18.0f, kBarBtnY = kBarY + (kBarH - kBarBtnH) / 2;
 const Rect kMachineBtn { kW - 16.0f - 220.0f, kBarBtnY, 220.0f, kBarBtnH };
 const Rect kMidiIn  { kMachineBtn.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
 const Rect kBufferBtn { kMidiIn.x - 8.0f - 150.0f, kBarBtnY, 150.0f, kBarBtnH };
-constexpr uint kBufferChoices[] = { 64, 128, 256, 512, 1024 };
-constexpr const wchar_t *kBufferFile = L"standalone-buffer.txt";
-// More items than fit above the bar go into further columns, to the left.
-constexpr float kMenuItemH = 18.0f, kMenuColW = 260.0f;
-constexpr int kMenuRows = int((kBarY - 8.0f) / kMenuItemH);
-constexpr int kMenuMaxItems = kMenuRows * 5;
 
 // While ROM images are missing they take the place of the display and the switches: what
 // is needed, a chip per image, and a button that asks for a file -- any one of them; the
@@ -97,6 +88,7 @@ public:
 		loadSharedResources();
 		std::memset(&m_panel, 0, sizeof(m_panel));
 		m_panel.knob = uint8_t(kKnobSteps);
+		m_bar.place(kMidiIn, kBufferBtn);
 	}
 
 protected:
@@ -143,7 +135,7 @@ protected:
 		}
 		else if (std::strcmp(key, "midiports") == 0)
 		{
-			setMidiPorts(value);
+			m_bar.setMidiPorts(value);
 			repaint();
 		}
 	}
@@ -209,8 +201,7 @@ protected:
 			drawKeys();
 		}
 		drawBar();
-		if (m_menu != kMenuNone)
-			drawMenu();
+		m_bar.drawList();
 	}
 
 	bool onMouse(const MouseEvent &ev) override
@@ -223,36 +214,11 @@ protected:
 		if (ev.press)
 		{
 			getWindow().focus();                // for the computer keyboard (onKeyboard)
-			if (m_menu != kMenuNone)
-			{
-				// A click into the list picks; anywhere else only closes it.
-				const int i = menuItemAt(x, y);
-				if (i >= 0)
-					menuChoose(i);
-				m_menu = kMenuNone;
-				repaint();
+			if (m_bar.press(x, y))
 				return true;
-			}
 			if (machineOffered() && kMachineBtn.contains(x, y))
 			{
-				m_menu = kMenuMachine;
-				m_menuHover = -1;
-				repaint();
-				return true;
-			}
-			if (m_midiOffered && kMidiIn.contains(x, y))
-			{
-				m_menu = kMenuMidi;
-				m_menuHover = -1;
-				sendMidiIn(kMidiRescan);        // the list again: a keyboard plugged in since
-				repaint();
-				return true;
-			}
-			if (bufferOffered() && kBufferBtn.contains(x, y))
-			{
-				m_menu = kMenuBuffer;
-				m_menuHover = -1;
-				repaint();
+				m_bar.open(m_machineList, kMachineBtn, kMachineBtn.w);
 				return true;
 			}
 			if (romSetup())
@@ -305,16 +271,8 @@ protected:
 	bool onMotion(const MotionEvent &ev) override
 	{
 		const float s = m_size.mouseScale();
-		if (m_menu != kMenuNone)
-		{
-			const int i = menuItemAt(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s);
-			if (i != m_menuHover)
-			{
-				m_menuHover = i;
-				repaint();
-			}
+		if (m_bar.motion(float(ev.pos.getX()) / s, float(ev.pos.getY()) / s))
 			return true;
-		}
 		if (!m_dragKnob)
 			return false;
 		// Up turns clockwise: a step every 6 design units.
@@ -335,12 +293,8 @@ protected:
 	{
 		if (ev.mod & (kModifierControl | kModifierAlt | kModifierSuper))
 			return false;
-		if (m_menu != kMenuNone && ev.press && ev.key == kKeyEscape)
-		{
-			m_menu = kMenuNone;
-			repaint();
+		if (ev.press && ev.key == kKeyEscape && m_bar.escape())
 			return true;
-		}
 		if (!ev.press || romSetup())
 			return false;
 		switch (ev.key)
@@ -370,8 +324,7 @@ protected:
 	void uiIdle() override
 	{
 		m_size.idle();
-		if (!m_bufferRestored && bufferOffered())
-			restoreBuffer();
+		m_bar.idle();
 		if (m_romChecking && std::chrono::steady_clock::now() - m_romAskedAt > std::chrono::seconds(15))
 		{
 			m_romChecking = false;          // no answer: let the user try again
@@ -556,60 +509,15 @@ private:
 		fill();
 
 		if (machineOffered())
-			barField(kMachineBtn, "CONTROL ROM", 82, machineLabel(), m_menu == kMenuMachine, false);
-		if (m_midiOffered)
-			drawMidiIn();
-		if (bufferOffered())
-			drawBuffer();
+			m_bar.field(kMachineBtn, "CONTROL ROM", 82, machineLabel(), m_bar.isOpen(m_machineList), false);
+		m_bar.drawFields();
 
-		const float w = (bufferOffered() ? kBufferBtn.x : m_midiOffered ? kMidiIn.x : kMachineBtn.x) - 24 - 16;
+		const float w = m_bar.leftEdge(kMachineBtn.x) - 24 - 16;
 		fontSize(11);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(m_panel.flags & 1 ? Color(140, 140, 140) : Color(240, 170, 60));
 		const std::string status = m_panel.flags & 4 ? std::string("Starting\xe2\x80\xa6") : m_status;
-		text(16, kBarY + kBarH / 2 + 1, fit(status, w, 11).c_str(), nullptr);
-	}
-
-	// A control in the bar: dark with a thin edge, as a host's own; lit when on.
-	void barButton(const Rect &r, const char *label, bool lit)
-	{
-		beginPath();
-		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
-		fillColor(lit ? Color(255, 140, 40) : Color(30, 30, 33));
-		fill();
-		strokeColor(lit ? Color(255, 140, 40) : Color(84, 84, 90));
-		strokeWidth(1);
-		stroke();
-		fontSize(10);
-		textAlign(ALIGN_CENTER | ALIGN_MIDDLE);
-		fillColor(lit ? Color(40, 20, 0) : Color(200, 200, 204));
-		text(r.x + r.w / 2, r.y + r.h / 2 + 1, label, nullptr);
-	}
-
-	// A field in the bar: a small name, the value, ▾.
-	void barField(const Rect &r, const char *name, float valueX, const std::string &value, bool open, bool warn)
-	{
-		beginPath();
-		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
-		fillColor(Color(30, 30, 33));
-		fill();
-		strokeColor(open ? Color(255, 140, 40) : Color(84, 84, 90));
-		strokeWidth(1);
-		stroke();
-
-		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
-		fontSize(9);
-		fillColor(Color(150, 150, 156));
-		text(r.x + 8, r.y + r.h / 2 + 1, name, nullptr);
-		fillColor(warn ? Color(240, 170, 60) : Color(220, 220, 224));
-		text(r.x + valueX, r.y + r.h / 2 + 1, fit(value, r.w - valueX - 22, 10).c_str(), nullptr);
-		beginPath();
-		moveTo(r.x + r.w - 15, r.y + r.h / 2 - 2);
-		lineTo(r.x + r.w - 7, r.y + r.h / 2 - 2);
-		lineTo(r.x + r.w - 11, r.y + r.h / 2 + 3);
-		closePath();
-		fillColor(Color(200, 200, 204));
-		fill();
+		text(16, kBarY + kBarH / 2 + 1, m_bar.fit(status, w, 11).c_str(), nullptr);
 	}
 
 	// ---- the control ROM: the machines the images make ---------------------------------
@@ -644,269 +552,6 @@ private:
 			if (m_machineIds[i] == id)
 				return m_machineNames[i];
 		return "\xe2\x80\x94";
-	}
-
-	// ---- the standalone's fields: MIDI IN (Windows), BUFFER ------------------------------
-
-	void setMidiPorts(const char *value)
-	{
-		std::vector<std::string> part(1);
-		for (const char *c = value; *c; c ++)
-		{
-			if (*c == kFieldSep)
-				part.emplace_back();
-			else
-				part.back() += *c;
-		}
-		m_midiOffered = part.size() >= 2;
-		if (!m_midiOffered)
-		{
-			if (m_menu == kMenuMidi)
-				m_menu = kMenuNone;
-			return;
-		}
-		m_midiChoice = part[0];
-		m_midiProblem = part[1];
-		m_midiPortList.assign(part.begin() + 2, part.end());
-	}
-
-	void sendMidiIn(const std::string &choice)
-	{
-		const std::string msg = std::to_string(++ m_seq) + " " + choice;
-		setState("midiin", msg.c_str());
-	}
-
-	static std::string midiLabel(const std::string &choice)
-	{
-		return choice.empty() ? "Off" : choice == kMidiAll ? "All inputs" : choice;
-	}
-
-	// DPF's own standalone (no JACK) plays through RtAudio, whose block size can change.
-	static bool bufferOffered()
-	{
-		return isUsingNativeAudio() && supportsBufferSizeChanges();
-	}
-
-	static std::string bufferLabel(uint frames, double rate)
-	{
-		char t[48];
-		std::snprintf(t, sizeof(t), "%u  (%.1f ms)", frames, rate > 0.0 ? 1000.0 * frames / rate : 0.0);
-		return t;
-	}
-
-	// The block size saved by the last run, set again once the panel is up.
-	void restoreBuffer()
-	{
-		m_bufferRestored = true;
-		const std::string saved = readSetting(kBufferFile);
-		const unsigned n = unsigned(std::strtoul(saved.c_str(), nullptr, 10));
-		for (uint b : kBufferChoices)
-			if (b == n && n != getBufferSize())
-			{
-				requestBufferSizeChange(n);
-				repaint();
-			}
-	}
-
-	void drawMidiIn()
-	{
-		std::string t = midiLabel(m_midiChoice);
-		if (!m_midiProblem.empty())
-			t += " \xe2\x80\x94 " + m_midiProblem;
-		barField(kMidiIn, "MIDI IN", 52, t, m_menu == kMenuMidi, !m_midiProblem.empty());
-	}
-
-	void drawBuffer()
-	{
-		barField(kBufferBtn, "BUFFER", 50, bufferLabel(getBufferSize(), getSampleRate()), m_menu == kMenuBuffer, false);
-	}
-
-	// ---- the lists ---------------------------------------------------------------------
-	//
-	// CONTROL ROM: the machines, then "Add ROM images"; MIDI IN: Off, All inputs, then the
-	// ports; BUFFER: the block sizes.  One at a time (m_menu).
-
-	int menuItems() const
-	{
-		if (m_menu == kMenuMachine)
-			return std::min(int(m_machineIds.size()) + 1, kMenuMaxItems);
-		if (m_menu == kMenuMidi)
-			return std::min(int(m_midiPortList.size()) + 2, kMenuMaxItems);
-		if (m_menu == kMenuBuffer)
-			return int(sizeof(kBufferChoices) / sizeof(kBufferChoices[0]));
-		return 0;
-	}
-
-	int menuRows() const { return std::min(menuItems(), kMenuRows); }
-	int menuCols() const { return (menuItems() + kMenuRows - 1) / kMenuRows; }
-	float menuColW() const
-	{
-		return m_menu == kMenuMidi ? kMenuColW : m_menu == kMenuMachine ? kMachineBtn.w : kBufferBtn.w + 40.0f;
-	}
-
-	Rect menuItem(int i) const
-	{
-		const float x = m_menu == kMenuMidi ? kMidiIn.x : m_menu == kMenuMachine ? kMachineBtn.x : kBufferBtn.x;
-		const float left = std::min(x, kW - 8.0f - float(menuCols()) * menuColW());
-		const float top = kBarY - 4.0f - float(menuRows()) * kMenuItemH;
-		return { left + float(i / kMenuRows) * menuColW(), top + float(i % kMenuRows) * kMenuItemH,
-		         menuColW(), kMenuItemH };
-	}
-
-	int menuItemAt(float x, float y) const
-	{
-		for (int i = 0; i < menuItems(); i ++)
-			if (menuItem(i).contains(x, y))
-				return i;
-		return -1;
-	}
-
-	std::string midiItemChoice(int i) const
-	{
-		return i == 0 ? std::string() : i == 1 ? std::string(kMidiAll) : m_midiPortList[size_t(i - 2)];
-	}
-
-	std::string menuLabel(int i) const
-	{
-		if (m_menu == kMenuMachine)
-			return size_t(i) < m_machineIds.size() ? m_machineNames[size_t(i)] : "Add ROM images\xe2\x80\xa6";
-		if (m_menu == kMenuMidi)
-			return midiLabel(midiItemChoice(i));
-		return bufferLabel(kBufferChoices[i], getSampleRate());
-	}
-
-	bool menuCurrent(int i) const
-	{
-		if (m_menu == kMenuMachine)
-			return size_t(i) < m_machineIds.size() && m_machineIds[size_t(i)] == m_running;
-		if (m_menu == kMenuMidi)
-			return midiItemChoice(i) == m_midiChoice;
-		return kBufferChoices[i] == getBufferSize();
-	}
-
-	// Below which item a line separates the list.
-	bool menuRuleAfter(int i) const
-	{
-		return (m_menu == kMenuMidi && i == 1) || (m_menu == kMenuMachine && i == int(m_machineIds.size()) - 1);
-	}
-
-	void menuChoose(int i)
-	{
-		if (m_menu == kMenuMachine)
-		{
-			if (size_t(i) >= m_machineIds.size())
-				browseRom();
-			else if (m_machineIds[size_t(i)] != m_running)
-			{
-				m_wantMachine = m_machineIds[size_t(i)];
-				setState("machine", m_wantMachine.c_str());
-			}
-		}
-		else if (m_menu == kMenuMidi)
-		{
-			const std::string c = midiItemChoice(i);
-			m_midiChoice = c;                   // shown at once; the plugin's answer follows
-			m_midiProblem.clear();
-			sendMidiIn(c);
-		}
-		else if (m_menu == kMenuBuffer)
-		{
-			const uint n = kBufferChoices[i];
-			if (n != getBufferSize())
-				requestBufferSizeChange(n);     // restarts the audio; falls back if refused
-			writeSetting(kBufferFile, std::to_string(getBufferSize()));
-		}
-	}
-
-	void drawMenu()
-	{
-		const int n = menuItems();
-		const Rect top = menuItem(0);
-		beginPath();
-		roundedRect(top.x - 1, top.y - 1, float(menuCols()) * menuColW() + 2, float(menuRows()) * kMenuItemH + 2, 3);
-		fillColor(Color(24, 24, 27));
-		fill();
-		strokeColor(Color(255, 140, 40));
-		strokeWidth(1);
-		stroke();
-		for (int i = 0; i < n; i ++)
-		{
-			const Rect r = menuItem(i);
-			if (i == m_menuHover)
-			{
-				beginPath();
-				rect(r.x, r.y, r.w, r.h);
-				fillColor(Color(60, 44, 24));
-				fill();
-			}
-			const bool current = menuCurrent(i);
-			textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
-			fontSize(11);
-			fillColor(current ? Color(255, 140, 40) : Color(220, 220, 224));
-			if (current)
-				text(r.x + 8, r.y + r.h / 2 + 1, "\xe2\x9c\x93", nullptr);
-			text(r.x + 26, r.y + r.h / 2 + 1, fit(menuLabel(i), r.w - 34, 11).c_str(), nullptr);
-			if (menuRuleAfter(i))
-			{
-				beginPath();
-				rect(r.x + 6, r.y + r.h - 0.5f, r.w - 12, 1);
-				fillColor(Color(60, 60, 66));
-				fill();
-			}
-		}
-	}
-
-	// The standalone's settings, per user: %LOCALAPPDATA%\Ostrich 32\<name> (Windows only;
-	// the plugins have their host's session).
-	static std::string readSetting(const wchar_t *name)
-	{
-		std::string s;
-#ifdef _WIN32
-		if (const wchar_t *d = _wgetenv(L"LOCALAPPDATA"))
-		{
-			const std::wstring p = std::wstring(d) + L"\\Ostrich 32\\" + name;
-			if (FILE *f = _wfopen(p.c_str(), L"rb"))
-			{
-				char buf[256];
-				const size_t n = std::fread(buf, 1, sizeof(buf), f);
-				std::fclose(f);
-				s.assign(buf, n);
-			}
-		}
-#else
-		(void)name;
-#endif
-		return s;
-	}
-
-	static void writeSetting(const wchar_t *name, const std::string &value)
-	{
-#ifdef _WIN32
-		if (const wchar_t *d = _wgetenv(L"LOCALAPPDATA"))
-		{
-			const std::wstring dir = std::wstring(d) + L"\\Ostrich 32";
-			_wmkdir(dir.c_str());
-			if (FILE *f = _wfopen((dir + L"\\" + name).c_str(), L"wb"))
-			{
-				std::fwrite(value.data(), 1, value.size(), f);
-				std::fclose(f);
-			}
-		}
-#else
-		(void)name;
-		(void)value;
-#endif
-	}
-
-	// Cut text to a width, with an ellipsis.
-	std::string fit(const std::string &t, float w, float size)
-	{
-		fontSize(size);
-		std::string s = t;
-		Rectangle<float> b;
-		while (!s.empty() && textBounds(0, 0, (s + (s.size() < t.size() ? "\xe2\x80\xa6" : "")).c_str(), nullptr, b) > w)
-			s.pop_back();
-		return s.size() < t.size() ? s + "\xe2\x80\xa6" : s;
 	}
 
 	// ---- ROM setup -------------------------------------------------------------------------
@@ -968,10 +613,10 @@ private:
 			"Click CHOOSE FILE and pick any one of the images, or a zip with them: the rest of "
 			"that folder is searched too, by contents, not names. They are copied to:", nullptr);
 		fillColor(Color(140, 140, 146));
-		text(132, 172, fit(m_romTarget, 450, 11).c_str(), nullptr);
+		text(132, 172, m_bar.fit(m_romTarget, 450, 11).c_str(), nullptr);
 		textLineHeight(1.0f);
 
-		barButton(kRomChoose, m_romChecking ? "CHECKING\xe2\x80\xa6" : "CHOOSE FILE\xe2\x80\xa6", !m_romChecking);
+		m_bar.button(kRomChoose, m_romChecking ? "CHECKING\xe2\x80\xa6" : "CHOOSE FILE\xe2\x80\xa6", !m_romChecking);
 		fontSize(10);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(Color(110, 110, 116));
@@ -1034,17 +679,40 @@ private:
 	std::vector<std::string> m_machineIds, m_machineNames;
 	bool m_machinesSeen = false;
 	PanelSize m_size { *this, kW, kH };
+	StandaloneBar m_bar { *this, "Ostrich 32", kBarY, kW };
+
+	// CONTROL ROM's list: the machines the images make, then "Add ROM images".
+	struct MachineList : BarList
+	{
+		OstrichUI &ui;
+		explicit MachineList(OstrichUI &u) : ui(u) {}
+		int count() const override { return int(ui.m_machineIds.size()) + 1; }
+		std::string label(int i) const override
+		{
+			return size_t(i) < ui.m_machineIds.size() ? ui.m_machineNames[size_t(i)] : "Add ROM imagesâ¦";
+		}
+		bool current(int i) const override
+		{
+			return size_t(i) < ui.m_machineIds.size() && ui.m_machineIds[size_t(i)] == ui.m_running;
+		}
+		bool ruleAfter(int i) const override { return i == int(ui.m_machineIds.size()) - 1; }
+		void choose(int i) override
+		{
+			if (size_t(i) >= ui.m_machineIds.size())
+				ui.browseRom();
+			else if (ui.m_machineIds[size_t(i)] != ui.m_running)
+			{
+				ui.m_wantMachine = ui.m_machineIds[size_t(i)];
+				ui.setState("machine", ui.m_wantMachine.c_str());
+			}
+		}
+	};
+	MachineList m_machineList { *this };
 	bool m_keyLit[kNumKeys] = {};
 	float m_wheel = 0.0f;
 	int m_pressed = -1;
 	bool m_dragKnob = false;
 	float m_dragY = 0;
-	bool m_midiOffered = false;                 // MIDI IN, the Windows standalone only
-	std::string m_midiChoice, m_midiProblem;
-	std::vector<std::string> m_midiPortList;
-	bool m_bufferRestored = false;
-	enum { kMenuNone, kMenuMachine, kMenuMidi, kMenuBuffer };
-	int m_menu = kMenuNone, m_menuHover = -1;
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OstrichUI)
 };

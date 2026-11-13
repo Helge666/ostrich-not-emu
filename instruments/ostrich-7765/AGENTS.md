@@ -50,6 +50,6 @@ analysis/ what is known about the hardware.
   build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%` are
   invisible to the DAW; use `C:\ProgramData`.
-- Test ROMs on the build host: `/home/helge/ostrich7765-work/roms` (`OSTRICH_ROMS` for
-  `shared/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
-  in phase 6 of the migration.
+- Test ROMs on the build host: `/data/coding/Ostrich-not-Emu/roms/ostrich-7765` (`OSTRICH_ROMS` for
+  `shared/tools/ostrich_clap_render`); older measurements and scripts in
+  `/data/coding/Ostrich-not-Emu/work/ostrich-7765`.

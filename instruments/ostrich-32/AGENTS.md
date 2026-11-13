@@ -71,6 +71,5 @@ BUILDING.md how to build it, ROADMAP.md what is open.
   that does not match it.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%`
   are invisible to the DAW; the ROM folder is `C:\ProgramData\Ostrich 32\roms`.
-- Test ROMs on the build host: `/data/coding/ostrich32-roms` (`OSTRICH32_ROMS` for
-  `shared/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
-  in phase 6 of the migration.
+- Test ROMs on the build host: `/data/coding/Ostrich-not-Emu/roms/ostrich-32` (`OSTRICH32_ROMS` for
+  `shared/tools/ostrich_clap_render`).

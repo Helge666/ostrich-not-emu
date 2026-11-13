@@ -35,7 +35,7 @@
 First target: the **old MT-32** (control ROM v1.04, 1.05, 1.06, 1.07, Blue Ridge, M-9; PCM
 and reverb ROM of the old board). The owner's own unit was bought in 1987, so an early
 version; the panel and the defaults follow the old MT-32, the earliest set (v1.04) first.
-These sets are at hand on the build host (`~/coding/ostrich32-roms`).
+These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ostrich-32`).
 
 - [ ] Listening check by the owner, by rebuilding songs: the owner's MT-32 songs of 1987
       survive only as digitised cassette recordings (no MIDI files), made with the built-in
@@ -85,7 +85,7 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
 - [ ] The new MT-32 (control ROM v2.03, 2.04, 2.06, 2.07), the CM-32L / LAPC-I (v1.00,
       1.02) and the CM-32LN (v1.00): 88emu runs them, but they need the reverb ROM
       R15179917, which is not at hand. Dumps of all other images but v2.03 are
-      (`~/coding/ostrich32-roms/mame-versioned`). Open: the CM-32L has no display or
+      (`/data/coding/Ostrich-not-Emu/roms/ostrich-32/mame-versioned`). Open: the CM-32L has no display or
       buttons; how its panel looks.
 - [ ] The M-9 firmware boots with master volume 0: check whether that is how it is.
 - [ ] Windows installer, as planned for Ostrich 55.

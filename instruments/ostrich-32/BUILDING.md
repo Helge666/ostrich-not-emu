@@ -81,7 +81,7 @@ file) and writes a WAV, printing the display as it changes. The test sequence al
 MASTER VOLUME and SOUND and turns the knob, so the panel is tested too.
 
 ```bash
-plugin/build-core/mt32_render ~/coding/ostrich32-roms /tmp/out.wav 6.5 "" mt32old/1.04
+plugin/build-core/mt32_render /path/to/roms /tmp/out.wav 6.5 "" mt32old/1.04
 ```
 
 Arguments: ROM folder, WAV, seconds, MIDI file (`""` for the test sequence), machine
@@ -115,7 +115,7 @@ state and writes the output to a WAV. The MT-32's first part listens on channel 
 ```bash
 gcc -std=gnu11 -O2 -o /tmp/render ../../shared/tools/ostrich_clap_render.c \
     -I../../third_party/dpf/distrho/src -ldl -lm
-OSTRICH32_ROMS=~/coding/ostrich32-roms /tmp/render plugin/bin/Ostrich32.clap /tmp/out.wav \
+OSTRICH32_ROMS=/path/to/roms /tmp/render plugin/bin/Ostrich32.clap /tmp/out.wav \
     --channel 2 --show-state
 ```
 

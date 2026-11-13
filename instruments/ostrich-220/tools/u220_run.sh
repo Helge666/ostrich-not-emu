@@ -6,7 +6,7 @@
 #
 #   tools/u220_run.sh [SECONDS] [-- extra MAME options]
 #
-# Works next to this repository (on kk2: ~/coding): ROMs with MAME's names in
+# Works next to this repository (on kk2: /data/coding/Ostrich-not-Emu): ROMs with MAME's names in
 # ostrich-mameroms/u220 (roms/README.md), runs in ostrich-run.  Runs with
 # -video none -sound none: nothing is drawn and no audio device is opened.
 

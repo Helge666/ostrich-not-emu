@@ -40,6 +40,7 @@ ROADMAP.md what is open, analysis/ what is known about the hardware.
   build time and `third_party/dpf` stays clean. Changes to DPF are commits in the fork.
 - On Windows, files written by tools inside a packaged (MSIX) app under `%LOCALAPPDATA%` are
   invisible to the DAW; use `C:\ProgramData`.
-- Test ROMs on the build host: `/data/coding/ostrich-mameroms/u220` (`OSTRICH_ROMS` for
-  `shared/tools/ostrich_clap_render`); they move under `/data/coding/Ostrich-not-Emu/`
-  in phase 6 of the migration.
+- Test ROMs on the build host: `/data/coding/Ostrich-not-Emu/roms/ostrich-220` (`OSTRICH_ROMS` for
+  `shared/tools/ostrich_clap_render`; the U-220 set and the U-110 program ROM), and with
+  MAME's names in `/data/coding/Ostrich-not-Emu/ostrich-mameroms/u220` for
+  `tools/u220_run.sh`, which runs in `/data/coding/Ostrich-not-Emu/ostrich-run`.

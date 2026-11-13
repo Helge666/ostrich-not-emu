@@ -57,12 +57,12 @@ These sets are at hand on the build host (`~/coding/ostrich32-roms`).
       through RtAudio calls in bursts of a device period). Lower latency there needs
       WASAPI low-latency shared mode or ASIO in our DPF fork, with the owner.
 - [ ] **Part = Ch** (the owner's decision, 13.11.2026): a checkbox in the bar, on by
-      default. While it is on, incoming MIDI on channels 1-5 goes to the MT-32 on 2-6, so
-      that the parts the display shows (1-5) match the MIDI channels; a keyboard on
-      channel 1 plays PART 1. The MT-32 itself hears PART 1 on channel 2 and nothing on 1
-      (RHYTHM on 10). Its state is kept in the session. Still to settle with the owner:
-      what incoming channels 6-9 do while it is on (6 would reach the part that 5 now
-      reaches).
+      default. While it is on, incoming MIDI on channels 1-8 goes to the MT-32 on 2-9 and
+      channel 10 stays as it is: the eight synth parts are then on the channels of their
+      numbers (PART 1 = channel 1, as the display shows them), RHYTHM on 10. The MT-32
+      itself hears PART 1-8 on channels 2-9 and nothing on 1. Channel 9 coming in then
+      reaches PART 8 as channel 8 does; channels 11-16 stay as they are. Its state is kept
+      in the session.
 - [ ] SysEx in: CLAP and standalone pass it; VST3 needs the DPF fork, as for Ostrich 55.
 - [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
       dot matrix (the font of its controller), the body, the switches and the knob after

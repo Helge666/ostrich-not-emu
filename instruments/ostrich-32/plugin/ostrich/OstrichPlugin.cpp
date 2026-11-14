@@ -780,8 +780,8 @@ private:
 	}
 
 	// The knob as if it had a motor: where the display shows a volume -- the master volume on
-	// the main screen ("1 2 3 4 5 R vol: 71"), a part's after PART n ("1|Fretless 2|vol> 80")
-	// -- the knob goes to where that volume stands, once nobody has turned it for
+	// the main screen ("1 2 3 4 5 R vol: 71"), a part's after PART n ("1|Fretless 2|vol> 80"),
+	// RHYTHM's ("Rhythm Part |vol> 80") -- the knob goes to where that volume stands, once nobody has turned it for
 	// kKnobSettleSeconds.  The unit's own knob stays where the hand left it, so after a
 	// restore or another part it would point elsewhere, and a part's volume only follows it
 	// once it passes the value.  The firmware reads the 10-bit pot as 7 bits and maps 0-127
@@ -800,7 +800,8 @@ private:
 		if (m_knobIdle < m_knobSettle)
 			return;
 		const bool master = t[1] == ' ' && std::memcmp(t + 13, "vol:", 4) == 0;
-		const bool part = t[1] == '|' && std::memcmp(t + 13, "vol>", 4) == 0;
+		// A part's "1|Fretless 2|vol> 80" and RHYTHM's "Rhythm Part |vol> 80" alike.
+		const bool part = t[12] == '|' && std::memcmp(t + 13, "vol>", 4) == 0;
 		if (!master && !part)
 			return;
 		int value = 0;

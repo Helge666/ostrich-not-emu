@@ -66,8 +66,10 @@
 - [x] GitHub: part of the monorepo `Helge666/ostrich-not-emu` instead of a repository of
       its own (13.11.2026).
 - [x] The **EFFECT tab** (the owner, 14.11.2026; it replaced the REVERB MODE button planned
-      earlier the same day; done 14.11.2026). Tabs UNIT and EFFECT top right; EFFECT sets
-      what the unit can do but its panel cannot reach, or only with two switches held:
+      earlier the same day; done 14.11.2026). EFFECT in the bar (the owner, after the first
+      look: one switch, not two tabs) shows the page in the unit's place, lit orange while
+      it does; clicked again, the unit. The page sets what the unit can do but its panel
+      cannot reach, or only with two switches held:
       - Reverb mode (Room, Hall, Plate, Tap Delay), time (1-8) and level (0-7): the system
         area, 10 00 01-03.
       - The unit's own presets 0-10: on the unit MASTER VOLUME held, then VOLUME, shows

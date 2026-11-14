@@ -36,7 +36,8 @@ knob); the panel after the unit comes next ([ROADMAP.md](ROADMAP.md)).
    channels as they come, as the unit does: PART 1 on channel 2 up to PART 8 on channel 9.
 5. The session keeps the unit's setup: the sound each part plays, levels, pans, reverb,
    master volume, whatever came by program change or SysEx or from the panel.
-6. The **EFFECT** tab (top right) sets what the unit's panel cannot reach: the reverb's mode
+6. **EFFECT** in the bar shows, in the unit's place, what the unit's panel cannot reach
+   (click it again for the unit): the reverb's mode
    (Room, Hall, Plate, Tap Delay), time and level, the unit's own reverb presets 0-10, and
    the reverb on or off per part and for RHYTHM. A part switched off stays dry after a
    program change, which would otherwise switch it on again.

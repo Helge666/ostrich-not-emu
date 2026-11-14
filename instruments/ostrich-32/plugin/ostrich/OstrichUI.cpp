@@ -57,12 +57,14 @@ Rect keyRect(uint32_t k)
 
 const Rect kKnob { 1218.0f, 98.0f, 72.0f, 72.0f };
 
-// The bar, from the right: CONTROL ROM, PART = CH, in the Windows standalone MIDI IN and
-// BUFFER; the status line takes the rest.  The lists open upwards, over the panel.
+// The bar, from the right: CONTROL ROM, PART = CH, EFFECT, in the Windows standalone MIDI
+// IN and BUFFER; the status line takes the rest.  The lists open upwards, over the panel.
+// EFFECT shows the EFFECT page in the unit's place, lit while it does; again, the unit.
 constexpr float kBarBtnH = 18.0f, kBarBtnY = kBarY + (kBarH - kBarBtnH) / 2;
 const Rect kMachineBtn { kW - 16.0f - 220.0f, kBarBtnY, 220.0f, kBarBtnH };
 const Rect kPartChBtn { kMachineBtn.x - 12.0f - 92.0f, kBarBtnY, 92.0f, kBarBtnH };
-const Rect kMidiIn  { kPartChBtn.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
+const Rect kEffectBtn { kPartChBtn.x - 12.0f - 70.0f, kBarBtnY, 70.0f, kBarBtnH };
+const Rect kMidiIn  { kEffectBtn.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
 const Rect kBufferBtn { kMidiIn.x - 8.0f - 150.0f, kBarBtnY, 150.0f, kBarBtnH };
 
 // While ROM images are missing they take the place of the display and the switches: what
@@ -75,12 +77,8 @@ inline Rect romCell(unsigned i)
 	return { 620.0f + float(i) * 170.0f, 92.0f, 150.0f, 70.0f };
 }
 
-// The tabs, top right: the unit's front, and the EFFECT page for what the unit can do but
-// its panel cannot reach (or only with two switches held).
-const Rect kTabUnit   { 1104.0f, 18.0f, 110.0f, 24.0f };
-const Rect kTabEffect { 1222.0f, 18.0f, 110.0f, 24.0f };
-
-// The EFFECT page: the reverb's mode, time, level and the unit's presets on the left, the
+// The EFFECT page, for what the unit can do but its panel cannot reach (or only with two
+// switches held): the reverb's mode, time, level and the unit's presets on the left, the
 // parts' reverb switches on the right.
 constexpr float kFxLabelX = 44.0f, kFxX = 150.0f, kFxSegH = 24.0f;
 constexpr float kFxRowMode = 76.0f, kFxRowTime = 112.0f, kFxRowLevel = 148.0f, kFxRowPreset = 192.0f;
@@ -226,7 +224,6 @@ protected:
 		}
 		else
 		{
-			drawTabs();
 			if (m_tab == kTabFx)
 				drawEffect();
 			else
@@ -258,6 +255,12 @@ protected:
 				m_bar.open(m_machineList, kMachineBtn, kMachineBtn.w);
 				return true;
 			}
+			if (!romSetup() && kEffectBtn.contains(x, y))
+			{
+				m_tab = m_tab == kTabFx ? kTabFront : kTabFx;
+				repaint();
+				return true;
+			}
 			if (kPartChBtn.contains(x, y))
 			{
 				m_partCh = !m_partCh;
@@ -276,12 +279,6 @@ protected:
 					return true;
 				}
 				return false;
-			}
-			if (kTabUnit.contains(x, y) || kTabEffect.contains(x, y))
-			{
-				m_tab = kTabEffect.contains(x, y) ? kTabFx : kTabFront;
-				repaint();
-				return true;
 			}
 			if (m_tab == kTabFx)
 				return pressEffect(x, y);
@@ -563,9 +560,11 @@ private:
 		if (machineOffered())
 			m_bar.field(kMachineBtn, "CONTROL ROM", 82, machineLabel(), m_bar.isOpen(m_machineList), false);
 		drawPartCh();
+		if (!romSetup())
+			segment(kEffectBtn, "EFFECT", m_tab == kTabFx, true, 9);
 		m_bar.drawFields();
 
-		const float w = m_bar.leftEdge(kPartChBtn.x) - 24 - 16;
+		const float w = m_bar.leftEdge(romSetup() ? kPartChBtn.x : kEffectBtn.x) - 24 - 16;
 		fontSize(11);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(m_panel.flags & 1 ? Color(140, 140, 140) : Color(240, 170, 60));
@@ -615,14 +614,6 @@ private:
 	}
 
 	// ---- the tabs and the EFFECT page ------------------------------------------------------
-
-	void drawTabs()
-	{
-		const Rect *tabs[2] = { &kTabUnit, &kTabEffect };
-		const char *names[2] = { "UNIT", "EFFECT" };
-		for (int i = 0; i < 2; i ++)
-			segment(*tabs[i], names[i], m_tab == i, true, 10);
-	}
 
 	/// A button of a row of choices: lit when it is the one chosen.
 	void segment(const Rect &r, const char *label, bool lit, bool enabled, float size = 11)

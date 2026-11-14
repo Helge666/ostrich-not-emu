@@ -115,33 +115,35 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
       - Reverb mode (Room, Hall, Plate, Tap Delay), time (1-8) and level (0-7): the system
         area, 10 00 01-03.
       - Reverb on/off per part 1-8: the patch temp's reverb switch (offset 6). The
-        firmware has only on/off, no send level or mix per part. Two catches:
-        - On the old firmware any write to a patch temp reloads the part's timbre, which
-          may cut its notes; write it only when the switch changes.
-        - A program change copies the patch's own switch (on in all 128 factory patches)
-          into the patch temp. So the plugin either sends the part's switch again after
-          every program change on its channel, or the tab says that a program change
-          resets it. To decide with the owner.
-      Everything goes in as SysEx through the core. The session already keeps the
-      result: the setup's copy follows every message, and the reading covers the system
-      area and the patch temps.
-- [ ] Reverb on/off per rhythm key (the rhythm setup, 4 bytes per key from 03 01 10, the
-      switch is the 4th byte): 64 keys (24-87) on the old firmware, 85 (24-108) on the
-      new one. How to show that many switches in little room: **to discuss with the
-      owner**. Ideas:
-      - A keyboard strip of the keys (one octave or so wide, scrolling), each key lit when
-        its reverb is on, with the sound's name on hover.
-      - A list grouped by kind (kicks, snares, toms, hi-hats, cymbals, percussion, the
-        rest), one switch per group that can be opened to the single keys.
-      - "Learn": a note on channel 10 selects its key in the list.
-      - All on / all off.
+        firmware has only on/off, no send level or mix per part.
+      - Reverb on/off for RHYTHM as a whole (the owner's decision, 14.11.2026): the switch
+        of every rhythm key at once (the rhythm setup, 4 bytes per key from 03 01 10, the
+        switch is the 4th byte; 64 keys 24-87 on the old firmware, 85 keys 24-108 on the
+        new one). Per key perhaps later.
+      The owner's decisions (14.11.2026):
+      - On the old firmware any write to a patch temp reloads the part's timbre, which
+        may cut its notes. Acceptable, one does not do it all the time. But many changes
+        in a row must not reach the firmware quickly (the stutter of the first setup
+        reading): send only the last value of a control, once it has been left alone for
+        a while (250 ms, as the panel reading), and only when it differs from the unit's.
+      - A program change copies the patch's own switch (on in all 128 factory patches)
+        into the patch temp: the plugin sends the part's switch again after every program
+        change on that part's channel. The switches belong to the instance and its
+        session; instances do not share them.
+      - A new instance always starts with the defaults (the unit's power-on: reverb on
+        everywhere, the factory reverb settings), never with another instance's settings.
+      Everything goes in as SysEx through the core. The session already keeps the unit's
+      side: the setup's copy follows every message, and the reading covers the system
+      area and the patch temps (the rhythm setup only through the copy, as the panel
+      cannot change it). The per-part switches the plugin re-sends are a state of their
+      own.
 - [ ] **Separate outputs**: one stereo output per part 1-8 plus RHYTHM (the owner,
-      14.11.2026). Open how: the LA32 chip mixes all partials into one DAC stream and the
-      reverb works on that sum, so 88emu has no per-part signal. It would need the LA32
-      emulation to sum the partials per part, with the partial-to-part assignment taken
-      from the firmware's RAM. The reverb would then stay on the main output or need one
-      send per part. Research first (88emu's LA32 and the firmware's partial table); a
-      change in our gearmulator fork.
+      14.11.2026). Always dry: the reverb is heard only on the main output (the owner's
+      decision). Open how: the LA32 chip mixes all partials into one DAC stream and the
+      reverb works on that sum, so 88emu has no per-part signal. It needs the LA32
+      emulation to sum the partials per part as well, with the partial-to-part assignment
+      taken from the firmware's RAM. Research first (88emu's LA32 and the firmware's
+      partial table); a change in our gearmulator fork.
 - [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
       publishes a release. Written 13.11.2026; green on GitHub (13.11.2026). 88emu's

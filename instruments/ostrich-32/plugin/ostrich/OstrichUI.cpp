@@ -75,6 +75,23 @@ inline Rect romCell(unsigned i)
 	return { 620.0f + float(i) * 170.0f, 92.0f, 150.0f, 70.0f };
 }
 
+// The tabs, top right: the unit's front, and the EFFECT page for what the unit can do but
+// its panel cannot reach (or only with two switches held).
+const Rect kTabUnit   { 1104.0f, 18.0f, 110.0f, 24.0f };
+const Rect kTabEffect { 1222.0f, 18.0f, 110.0f, 24.0f };
+
+// The EFFECT page: the reverb's mode, time, level and the unit's presets on the left, the
+// parts' reverb switches on the right.
+constexpr float kFxLabelX = 44.0f, kFxX = 150.0f, kFxSegH = 24.0f;
+constexpr float kFxRowMode = 76.0f, kFxRowTime = 112.0f, kFxRowLevel = 148.0f, kFxRowPreset = 192.0f;
+constexpr float kFxPartX = 760.0f, kFxPartY = 100.0f, kFxPartW = 58.0f, kFxPartH = 30.0f;
+inline Rect fxSeg(float row, int i, int n, float w) { (void)n; return { kFxX + float(i) * (w + 4.0f), row, w, kFxSegH }; }
+inline Rect fxModeRect(int i)   { return fxSeg(kFxRowMode, i, kReverbModes, 118.0f); }
+inline Rect fxTimeRect(int i)   { return fxSeg(kFxRowTime, i, kReverbTimes, 56.0f); }
+inline Rect fxLevelRect(int i)  { return fxSeg(kFxRowLevel, i, kReverbLevels, 56.0f); }
+inline Rect fxPresetRect(int i) { return fxSeg(kFxRowPreset, i, kReverbPresets, 40.0f); }
+inline Rect fxPartRect(int p)   { return { kFxPartX + float(p) * (kFxPartW + 6.0f), kFxPartY, kFxPartW, kFxPartH }; }
+
 } // anonymous namespace
 
 
@@ -144,6 +161,11 @@ protected:
 			m_partCh = std::strcmp(value, "0") != 0;
 			repaint();
 		}
+		else if (std::strcmp(key, "fxstate") == 0)
+		{
+			setFxState(value);
+			repaint();
+		}
 	}
 
 	void uiFileBrowserSelected(const char *filename) override
@@ -197,14 +219,23 @@ protected:
 		fillColor(Color(170, 170, 170));
 		text(178, 40, "MULTI-TIMBRE SOUND MODULE  \xc2\xb7  MT-32 EMULATION", nullptr);
 
-		drawKnob();
 		if (romSetup())
+		{
+			drawKnob();
 			drawRomSetup();
+		}
 		else
 		{
-			drawLcd();
-			drawMidiLamp();
-			drawKeys();
+			drawTabs();
+			if (m_tab == kTabFx)
+				drawEffect();
+			else
+			{
+				drawKnob();
+				drawLcd();
+				drawMidiLamp();
+				drawKeys();
+			}
 		}
 		drawBar();
 		m_bar.drawList();
@@ -246,6 +277,14 @@ protected:
 				}
 				return false;
 			}
+			if (kTabUnit.contains(x, y) || kTabEffect.contains(x, y))
+			{
+				m_tab = kTabEffect.contains(x, y) ? kTabFx : kTabFront;
+				repaint();
+				return true;
+			}
+			if (m_tab == kTabFx)
+				return pressEffect(x, y);
 			for (unsigned k = 0; k < kNumKeys; k ++)
 				if (keyRect(k).contains(x, y))
 				{
@@ -308,7 +347,7 @@ protected:
 			return false;
 		if (ev.press && ev.key == kKeyEscape && m_bar.escape())
 			return true;
-		if (!ev.press || romSetup())
+		if (!ev.press || romSetup() || m_tab == kTabFx)
 			return false;
 		switch (ev.key)
 		{
@@ -323,7 +362,7 @@ protected:
 		const float s = m_size.mouseScale();
 		const float x = float(ev.pos.getX()) / s, y = float(ev.pos.getY()) / s;
 		// The wheel over the knob or the display turns the knob, a step a notch.
-		if (romSetup() || !(kKnob.contains(x, y) || kLcd.contains(x, y)))
+		if (romSetup() || m_tab == kTabFx || !(kKnob.contains(x, y) || kLcd.contains(x, y)))
 			return false;
 		m_wheel += float(ev.delta.getY());
 		int steps = 0;
@@ -575,6 +614,157 @@ private:
 		text(bx + b + 8, r.y + r.h / 2 + 1, "PART = CH", nullptr);
 	}
 
+	// ---- the tabs and the EFFECT page ------------------------------------------------------
+
+	void drawTabs()
+	{
+		const Rect *tabs[2] = { &kTabUnit, &kTabEffect };
+		const char *names[2] = { "UNIT", "EFFECT" };
+		for (int i = 0; i < 2; i ++)
+			segment(*tabs[i], names[i], m_tab == i, true, 10);
+	}
+
+	/// A button of a row of choices: lit when it is the one chosen.
+	void segment(const Rect &r, const char *label, bool lit, bool enabled, float size = 11)
+	{
+		beginPath();
+		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
+		fillColor(lit ? Color(255, 140, 40) : Color(30, 30, 33));
+		fill();
+		strokeColor(lit ? Color(255, 170, 90) : Color(84, 84, 90));
+		strokeWidth(1);
+		stroke();
+		fontSize(size);
+		textAlign(ALIGN_CENTER | ALIGN_MIDDLE);
+		fillColor(lit ? Color(40, 20, 0) : enabled ? Color(220, 220, 224) : Color(110, 110, 116));
+		text(r.x + r.w / 2, r.y + r.h / 2 + 1, label, nullptr);
+	}
+
+	void fxLabel(float row, const char *name)
+	{
+		fontSize(11);
+		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
+		fillColor(Color(200, 200, 204));
+		text(kFxLabelX, row + kFxSegH / 2 + 1, name, nullptr);
+	}
+
+	void fxNote(float x, float y, float w, const char *t)
+	{
+		fontSize(10);
+		textAlign(ALIGN_LEFT | ALIGN_TOP);
+		textLineHeight(1.35f);
+		fillColor(Color(130, 130, 136));
+		textBox(x, y, w, t, nullptr);
+		textLineHeight(1.0f);
+	}
+
+	// The reverb as the unit has it ("fxstate", or what was clicked until the unit has it):
+	// mode, time and level, then the unit's presets (lit when the settings are one of them);
+	// on the right a switch per part.
+	void drawEffect()
+	{
+		const bool on = m_fxKnown;
+		char t[8];
+		fxLabel(kFxRowMode, "REVERB");
+		for (int i = 0; i < kReverbModes; i ++)
+			segment(fxModeRect(i), kReverbModeNames[i], on && m_fxMode == i, on);
+		fxLabel(kFxRowTime, "TIME");
+		for (int i = 0; i < kReverbTimes; i ++)
+		{
+			std::snprintf(t, sizeof t, "%d", i + 1);
+			segment(fxTimeRect(i), t, on && m_fxTime == i, on);
+		}
+		fxLabel(kFxRowLevel, "LEVEL");
+		for (int i = 0; i < kReverbLevels; i ++)
+		{
+			std::snprintf(t, sizeof t, "%d", i);
+			segment(fxLevelRect(i), t, on && m_fxLevel == i, on);
+		}
+		fxLabel(kFxRowPreset, "UNIT PRESET");
+		for (int i = 0; i < kReverbPresets; i ++)
+		{
+			std::snprintf(t, sizeof t, "%d", i);
+			const bool lit = on && m_fxMode == 0 && m_fxTime == kReverbPresetTime[i] && m_fxLevel == kReverbPresetLevel[i];
+			segment(fxPresetRect(i), t, lit, on);
+		}
+		fxNote(kFxX, kFxRowPreset + kFxSegH + 8, 560,
+			"The unit's own settings (MASTER VOLUME held, then VOLUME, and the knob): Room with a time and level.");
+
+		fontSize(11);
+		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
+		fillColor(Color(200, 200, 204));
+		text(kFxPartX, kFxRowMode + kFxSegH / 2 + 1, "REVERB PER PART", nullptr);
+		for (int p = 0; p < 9; p ++)
+		{
+			std::snprintf(t, sizeof t, p < 8 ? "%d" : "RHYTHM", p + 1);
+			segment(fxPartRect(p), t, on && m_fxSw[p], on, p < 8 ? 12 : 9);
+		}
+		fxNote(kFxPartX, kFxPartY + kFxPartH + 14, 570,
+			"On at power-on and in every factory patch. A program change brings the patch's own switch "
+			"back; a part switched off here is switched off again at once. On the old firmware a switch "
+			"reloads the part's sound and may cut its notes. RHYTHM switches every key's reverb.");
+		if (!on)
+		{
+			fontSize(11);
+			textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
+			fillColor(Color(240, 170, 60));
+			text(kFxPartX, kFxRowPreset + kFxSegH + 14, "No machine running.", nullptr);
+		}
+	}
+
+	bool pressEffect(float x, float y)
+	{
+		if (!m_fxKnown)
+			return false;
+		for (int i = 0; i < kReverbModes; i ++)
+			if (fxModeRect(i).contains(x, y)) { m_fxMode = i; return sendFx("mode", i); }
+		for (int i = 0; i < kReverbTimes; i ++)
+			if (fxTimeRect(i).contains(x, y)) { m_fxTime = i; return sendFx("time", i); }
+		for (int i = 0; i < kReverbLevels; i ++)
+			if (fxLevelRect(i).contains(x, y)) { m_fxLevel = i; return sendFx("level", i); }
+		for (int i = 0; i < kReverbPresets; i ++)
+			if (fxPresetRect(i).contains(x, y))
+			{
+				m_fxMode = 0;
+				m_fxTime = kReverbPresetTime[i];
+				m_fxLevel = kReverbPresetLevel[i];
+				return sendFx("preset", i);
+			}
+		for (int p = 0; p < 9; p ++)
+			if (fxPartRect(p).contains(x, y))
+			{
+				m_fxSw[p] = !m_fxSw[p];
+				return sendFx("part", p, m_fxSw[p] ? 1 : 0);
+			}
+		return false;
+	}
+
+	bool sendFx(const char *what, int a, int b = -1)
+	{
+		char msg[48];
+		if (b < 0)
+			std::snprintf(msg, sizeof msg, "%u %s %d", ++ m_seq, what, a);
+		else
+			std::snprintf(msg, sizeof msg, "%u %s %d %d", ++ m_seq, what, a, b);
+		setState("fx", msg);
+		repaint();
+		return true;
+	}
+
+	void setFxState(const char *value)
+	{
+		char sw[16] = {};
+		int mode = 0, time = 0, level = 0;
+		m_fxKnown = std::sscanf(value, "%d %d %d %15s", &mode, &time, &level, sw) == 4 && std::strlen(sw) == 9;
+		if (!m_fxKnown)
+			return;
+		m_fxMode = mode;
+		m_fxTime = time;
+		m_fxLevel = level;
+		for (int p = 0; p < 9; p ++)
+			m_fxSw[p] = sw[p] != '0';
+	}
+
 	// ---- the control ROM: the machines the images make ---------------------------------
 
 	void setMachines(const char *value)
@@ -734,6 +924,12 @@ private:
 	std::vector<std::string> m_machineIds, m_machineNames;
 	bool m_machinesSeen = false;
 	bool m_partCh = true;                       // PART = CH, as the plugin has it
+	enum { kTabFront, kTabFx };
+	int m_tab = kTabFront;
+	// The reverb as "fxstate" says, or as clicked until it does.
+	bool m_fxKnown = false;
+	int m_fxMode = 0, m_fxTime = 5, m_fxLevel = 3;
+	bool m_fxSw[9] = { true, true, true, true, true, true, true, true, true };
 	PanelSize m_size { *this, kW, kH };
 	StandaloneBar m_bar { *this, "Ostrich 32", kBarY, kW };
 

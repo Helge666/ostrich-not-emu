@@ -58,8 +58,29 @@ enum Button : uint32_t
 	ButtonSound = 1u << 11, ButtonMasterVolume = 1u << 12,
 };
 
+/// The reverb as the unit has it: what Core::effect() reads from the copy of its memory.
+struct Effect
+{
+	static constexpr unsigned kMaxRhythmKeys = 85;
+	uint8_t mode = 0;                  ///< system area 10 00 01: Room, Hall, Plate, Tap Delay
+	uint8_t time = 5;                  ///< 10 00 02: 0-7 (the time 1-8)
+	uint8_t level = 3;                 ///< 10 00 03: 0-7
+	bool partReverb[8] = {};           ///< parts 1-8: the patch temp's reverb switch (offset 6)
+	uint8_t partChannel[8] = {};       ///< the channel each part receives on, 0-15, 16 = off
+	unsigned rhythmKeys = 0;           ///< keys in the rhythm setup: 64 (old board) or 85
+	uint8_t rhythm[kMaxRhythmKeys * 4] = {};  ///< the rhythm setup from key 24, 4 bytes a key
+	/// RHYTHM's reverb as one switch: on while any key has it on.
+	bool rhythmReverb() const
+	{
+		for (unsigned k = 0; k < rhythmKeys; k ++)
+			if (rhythm[k * 4 + 3])
+				return true;
+		return false;
+	}
+};
+
 /// One running machine.  Not thread-safe: call everything from one thread (the plugin's
-/// audio thread) or guard it.
+/// audio thread) or guard it -- but for revision(), effect() and setup(), see there.
 class Core
 {
 public:
@@ -132,6 +153,14 @@ public:
 
 	/// Whether a restore or a reading is still under way.  Any thread.
 	bool busy() const;
+
+	/// Changes whenever the copy of the unit's memory changes.  Any thread, real-time safe.
+	uint64_t revision() const;
+
+	/// The reverb as the copy of the unit's memory has it.  False while no machine runs.  Any
+	/// thread while the machine is neither started nor stopped; not real-time safe (it
+	/// copies the memory).
+	bool effect(Effect &out) const;
 
 private:
 	struct Impl;

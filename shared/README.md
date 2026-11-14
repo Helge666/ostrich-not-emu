@@ -12,7 +12,7 @@ What more than one instrument uses, so that it lives once.
 | `plugin/MidiInput.hpp`, `.cpp` | 32, 55, 220, 7765 | MIDI IN for the Windows standalone (WinMM) |
 | `plugin/StandaloneMidi.hpp` | 32, 55, 220, 7765 | its DSP half: the port chosen and saved, the messages placed in the block |
 | `plugin/StandaloneBar.hpp` | 32, 55, 220, 7765 | its panel half: the MIDI IN and BUFFER fields and their lists, in the instrument's colours |
-| `tools/ostrich_clap_render.c` | 32, 55, 220, 7765 | loads a Linux CLAP without a host, plays notes, writes a WAV; CI's smoke test |
+| `tools/ostrich_clap_render.c` | 32, 55, 220, 7765 | loads a Linux CLAP without a host, plays notes and MIDI, writes a WAV; CI's smoke test |
 
 Instruments include these by relative path (`../../../../shared/plugin/...` from
 `plugin/ostrich/`), so a tool compiled by hand finds them without extra `-I` flags. A

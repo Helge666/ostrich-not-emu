@@ -489,6 +489,32 @@ bool Core::busy() const
 	return m->scriptBusy.load();
 }
 
+uint64_t Core::revision() const
+{
+	return m->tracker.revision();
+}
+
+bool Core::effect(Effect &out) const
+{
+	if (!m->tracking.load())
+		return false;
+	const la::Memory mem = m->tracker.memory();
+	out = Effect();
+	out.mode = mem.value(la::Area::LaSystem, 0, 1);
+	out.time = mem.value(la::Area::LaSystem, 0, 2);
+	out.level = mem.value(la::Area::LaSystem, 0, 3);
+	for (size_t p = 0; p < 8; p ++)
+	{
+		out.partReverb[p] = mem.value(la::Area::PatchTemp, p, 6) != 0;
+		out.partChannel[p] = mem.laReceiveChannel(p);
+	}
+	out.rhythmKeys = std::min<unsigned>(mem.entryCount(la::Area::RhythmSetup), Effect::kMaxRhythmKeys);
+	for (unsigned k = 0; k < out.rhythmKeys; k ++)
+		for (unsigned i = 0; i < 4; i ++)
+			out.rhythm[k * 4 + i] = mem.value(la::Area::RhythmSetup, k, i);
+	return true;
+}
+
 void Core::readSetup()
 {
 	if (!m_running || m->scriptBusy.load() || m->script.capacity() < m->requests.size())

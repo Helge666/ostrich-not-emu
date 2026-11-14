@@ -310,8 +310,24 @@ protected:
 			state.key = "partch";
 			state.label = "Part = channel";
 			break;
+		case kStateFx:
+			state.key = "fx";
+			state.label = "Effect setting";
+			state.hints = kStateIsOnlyForDSP;
+			break;
+		case kStateFxState:
+			state.key = "fxstate";
+			state.label = "Effect";
+			state.hints = kStateIsOnlyForUI;
+			break;
+		case kStateReverbSw:
+			// Saved with the session: the parts' reverb switches this instance keeps.
+			state.key = "reverbsw";
+			state.label = "Reverb per part";
+			state.hints = kStateIsOnlyForDSP;
+			break;
 		}
-		state.defaultValue = index == kStatePartCh ? "1" : "";
+		state.defaultValue = index == kStatePartCh ? "1" : index == kStateReverbSw ? "11111111" : "";
 	}
 
 	String getState(const char *key) const override
@@ -320,7 +336,16 @@ protected:
 			return String(const_cast<OstrichPlugin *>(this)->currentSetup().c_str());
 		if (std::strcmp(key, "partch") == 0)
 			return String(m_partCh.load() ? "1" : "0");
+		if (std::strcmp(key, "reverbsw") == 0)
+		{
+			char sw[9] = {};
+			for (unsigned p = 0; p < 8; p ++)
+				sw[p] = m_partSw[p].load() ? '1' : '0';
+			return String(sw);
+		}
 		std::lock_guard<std::mutex> lock(m_statusLock);
+		if (std::strcmp(key, "fxstate") == 0)
+			return String(m_fxState.c_str());
 		if (std::strcmp(key, "status") == 0)
 			return String(m_status.c_str());
 		if (std::strcmp(key, "romset") == 0)
@@ -408,6 +433,57 @@ protected:
 			m_partCh.store(std::strcmp(value, "0") != 0);
 			return;
 		}
+		if (std::strcmp(key, "reverbsw") == 0)
+		{
+			if (std::strlen(value) == 8)
+				for (unsigned p = 0; p < 8; p ++)
+					m_partSw[p].store(value[p] != '0');
+			return;
+		}
+		if (std::strcmp(key, "fx") == 0)
+		{
+			setFx(value);
+			return;
+		}
+	}
+
+	// ---- the EFFECT tab --------------------------------------------------------------------
+	// What the tab asks for waits here until it has been left alone for kFxQuietSeconds (a
+	// drag over the steps is one change), then the worker thread sends what differs from the
+	// unit, paced (pumpOutbox).  On the old firmware a write to a part's patch temp reloads
+	// its sound and may cut its notes; that is the price of a switch the panel lacks.
+
+	void setFx(const char *value)
+	{
+		unsigned n = 0;
+		char what[16] = {};
+		int a = -1, b = -1;
+		if (std::sscanf(value, "%u %15s %d %d", &n, what, &a, &b) < 3)
+			return;
+		std::lock_guard<std::mutex> lock(m_fxLock);
+		FxWant &w = m_fxWant;
+		if (std::strcmp(what, "mode") == 0 && a >= 0 && a < kReverbModes)
+			w.mode = a;
+		else if (std::strcmp(what, "time") == 0 && a >= 0 && a < kReverbTimes)
+			w.time = a;
+		else if (std::strcmp(what, "level") == 0 && a >= 0 && a < kReverbLevels)
+			w.level = a;
+		else if (std::strcmp(what, "preset") == 0 && a >= 0 && a < kReverbPresets)
+		{
+			w.mode = 0;
+			w.time = kReverbPresetTime[a];
+			w.level = kReverbPresetLevel[a];
+		}
+		else if (std::strcmp(what, "part") == 0 && a >= 0 && a < 9 && (b == 0 || b == 1))
+		{
+			w.part[a] = b;
+			if (a < 8)
+				m_partSw[a].store(b != 0);  // the instance's: set again after a program change
+		}
+		else
+			return;
+		m_fxTouched = std::chrono::steady_clock::now();
+		m_fxUnsent = true;
 	}
 
 	// ---- audio ---------------------------------------------------------------------------
@@ -470,12 +546,14 @@ protected:
 		// kPanelQuietSeconds (a turn of the knob is dozens of changes: one reading for all),
 		// or at once when the host saves before that (readPanel()).
 		m_panelQuiet = m_panelQuiet < m_panelSettle ? m_panelQuiet + frames : m_panelQuiet;
-		if ((m_readRequest.load() || (m_panelTouched.load() && m_panelQuiet >= m_panelSettle)) && !m_core.busy())
+		if ((m_readRequest.load() || (m_panelTouched.load() && m_panelQuiet >= m_panelSettle)) && !m_core.busy()
+		    && !m_outPending.load())
 		{
 			m_panelTouched.store(false);
 			m_core.readSetup();
 			m_readRequest.store(false);
 		}
+		pumpOutbox(frames);
 
 		// MIDI in at its place in the block, the host's and the standalone's own merged.
 		// The core renders up to each message before it hands it over.  PART = CH moves
@@ -511,7 +589,19 @@ protected:
 				moved[0] = uint8_t(data[0] + 1);
 				data = moved;
 			}
-			m_core.midi(data, size, std::min(frame, frames - 1));
+			const uint32_t at = std::min(frame, frames - 1);
+			m_core.midi(data, size, at);
+			// A program change brings the patch's own reverb switch (on in every factory
+			// patch): where this instance has a part's switched off, off again, at once, so
+			// that the notes after it are dry.
+			if (size >= 2 && (data[0] & 0xF0) == 0xC0)
+				for (uint8_t p = 0; p < 8; p ++)
+					if (!m_partSw[p].load() && m_partChan[p].load() == (data[0] & 0x0F))
+					{
+						const uint8_t off = 0;
+						uint8_t msg[16];
+						m_core.midi(msg, dt1(0x03, 0x00, uint8_t(p * 0x10 + 6), &off, 1, msg), at);
+					}
 		}
 		m_core.render(outL, outR, frames);
 		m_blocks.fetch_add(1);
@@ -526,6 +616,16 @@ private:
 	static constexpr double kPanelQuietSeconds = 0.25;  // then what the panel changed is read
 	static constexpr double kKnobSettleSeconds = 0.3;   // then the knob follows the value
 	static constexpr int kPotPerStep = 8;               // a panel step: one the firmware reads
+	static constexpr double kFxQuietSeconds = 0.25;     // then what the EFFECT tab asks is sent
+	static constexpr double kFxPollSeconds = 0.05;      // the worker looks at the effect
+	static constexpr double kFxGiveUpSeconds = 3.0;
+
+	/// What the EFFECT tab asks for: -1 = nothing (as the unit has it).
+	struct FxWant
+	{
+		int mode = -1, time = -1, level = -1;
+		int part[9] = { -1, -1, -1, -1, -1, -1, -1, -1, -1 };   // 8 = RHYTHM
+	};
 
 	void setupRate()
 	{
@@ -533,7 +633,52 @@ private:
 		m_keyHoldFrames = uint32_t(m_hostRate * kKeyHoldSeconds);
 		m_keyGap = uint32_t(m_hostRate * kKeyGapSeconds);
 		m_panelSettle = uint32_t(m_hostRate * kPanelQuietSeconds);
-		m_knobSettle = uint32_t(m_hostRate * kKnobSettleSeconds);		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
+		m_knobSettle = uint32_t(m_hostRate * kKnobSettleSeconds);
+		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
+	}
+
+	/// A DT1 (data set) to the unit, device ID 17, at a 7-bit address: its length in @p out
+	/// (at least n + 10 bytes).
+	static size_t dt1(uint8_t a0, uint8_t a1, uint8_t a2, const uint8_t *d, size_t n, uint8_t *out)
+	{
+		size_t i = 0;
+		for (uint8_t b : { 0xF0, 0x41, 0x10, 0x16, 0x12 })
+			out[i ++] = b;
+		unsigned sum = a0 + a1 + a2;
+		out[i ++] = a0;
+		out[i ++] = a1;
+		out[i ++] = a2;
+		for (size_t k = 0; k < n; k ++)
+		{
+			out[i ++] = d[k];
+			sum += d[k];
+		}
+		out[i ++] = uint8_t((128 - sum % 128) % 128);
+		out[i ++] = 0xF7;
+		return i;
+	}
+
+	/// The time the firmware wants after a message of @p bytes before the next (as the core
+	/// paces a restore, mt32_core.cpp).
+	static double messageSeconds(size_t bytes) { return double(bytes) * (11.0 / 32000.0 + 0.001) + 0.04; }
+
+	/// run(): the next message the worker left in the outbox, once the one before had its time.
+	void pumpOutbox(uint32_t frames)
+	{
+		m_outWait = m_outWait > frames ? m_outWait - frames : 0;
+		if (!m_outPending.load() || m_outWait || m_core.busy())
+			return;
+		std::unique_lock<std::mutex> lock(m_outLock, std::try_to_lock);
+		if (!lock.owns_lock())
+			return;
+		if (m_outNext < m_outEnds.size())
+		{
+			const uint32_t from = m_outNext ? m_outEnds[m_outNext - 1] : 0, to = m_outEnds[m_outNext ++];
+			m_core.midi(m_outBytes.data() + from, to - from, 0);
+			m_outWait = uint32_t(messageSeconds(to - from) * m_hostRate);
+		}
+		if (m_outNext >= m_outEnds.size())
+			m_outPending.store(false);
 	}
 
 	// Presses queue up (a fast hand), each played as a press of its own: held for
@@ -589,6 +734,7 @@ private:
 		updateStateValue("status", m_status.c_str());
 		updateStateValue("romset", m_romSet.c_str());
 		updateStateValue("machines", m_machines.c_str());
+		updateStateValue("fxstate", m_fxState.c_str());
 	}
 
 	void publishPanel(uint32_t frames, bool haveMachine)
@@ -793,6 +939,15 @@ private:
 				m_keyMask = 0;
 				m_panelTouched.store(false);
 				m_readRequest.store(false);
+				{
+					std::lock_guard<std::mutex> ol(m_outLock);   // meant for the machine stopped
+					m_outBytes.clear();
+					m_outEnds.clear();
+					m_outNext = 0;
+					m_outPending.store(false);
+					m_outWait = 0;
+				}
+				m_fxKnown = false;
 				started = true;
 			}
 			if (ok && apply)
@@ -914,7 +1069,9 @@ private:
 		std::unique_lock<std::mutex> lock(m_jobLock);
 		for (;;)
 		{
-			m_jobCv.wait(lock, [this] { return m_quit || m_jobStart || !m_jobPicked.empty(); });
+			// Also every kFxPollSeconds: the EFFECT tab (pollEffect).
+			m_jobCv.wait_for(lock, std::chrono::duration<double>(kFxPollSeconds),
+			                 [this] { return m_quit || m_jobStart || !m_jobPicked.empty(); });
 			if (m_quit)
 				return;
 			const std::string picked = std::move(m_jobPicked);
@@ -926,7 +1083,132 @@ private:
 				installRoms(upath(picked));
 			if (start && m_activated)
 				startMachine();
+			pollEffect();
 			lock.lock();
+		}
+	}
+
+	/// The worker's part of the EFFECT tab: what the copy of the unit's memory says the
+	/// reverb is, to the tab; and what the tab asked for, once left alone, as the messages
+	/// that make the unit so, into the outbox (pumpOutbox sends them).  What the tab asked
+	/// for is shown until the unit has it, or for kFxGiveUpSeconds after it was sent.
+	void pollEffect()
+	{
+		using clock = std::chrono::steady_clock;
+		std::lock_guard<std::mutex> romLock(m_romLock);     // no machine starts or stops meanwhile
+		if (m_runningId.empty() || !m_activated)
+		{
+			m_fxKnown = false;
+			publishFx(FxWant());
+			return;
+		}
+		const uint64_t rev = m_core.revision();
+		if (!m_fxKnown || rev != m_fxRev)
+		{
+			m_fxKnown = m_core.effect(m_fx);
+			m_fxRev = rev;
+			for (unsigned p = 0; p < 8; p ++)
+				m_partChan[p].store(m_fx.partChannel[p]);
+		}
+		if (!m_fxKnown)
+		{
+			publishFx(FxWant());
+			return;
+		}
+		const clock::time_point now = clock::now();
+		FxWant want;
+		{
+			std::lock_guard<std::mutex> lock(m_fxLock);
+			if (m_fxUnsent && now - m_fxTouched >= std::chrono::duration<double>(kFxQuietSeconds)
+			    && !m_outPending.load() && !m_core.busy())
+			{
+				queueFx(m_fxWant);
+				m_fxUnsent = false;
+				m_fxSentAt = now;
+			}
+			// What the unit has now, or will not get, is no longer asked for.
+			FxWant &w = m_fxWant;
+			const bool gaveUp = !m_fxUnsent && !m_outPending.load()
+			                    && now - m_fxSentAt > std::chrono::duration<double>(kFxGiveUpSeconds);
+			auto settle = [&](int &field, int unit) { if (field >= 0 && (field == unit || gaveUp)) field = -1; };
+			settle(w.mode, m_fx.mode);
+			settle(w.time, m_fx.time);
+			settle(w.level, m_fx.level);
+			for (unsigned p = 0; p < 8; p ++)
+				settle(w.part[p], m_fx.partReverb[p]);
+			settle(w.part[8], m_fx.rhythmReverb());
+			want = w;
+		}
+		publishFx(want);
+	}
+
+	/// The messages that bring the unit to what @p w asks, as far as it differs: the reverb
+	/// settings in one, a part's switch in one each, RHYTHM's in the rhythm setup's every key
+	/// (its other bytes as the unit has them).  Under m_romLock and m_fxLock.
+	void queueFx(const FxWant &w)
+	{
+		std::lock_guard<std::mutex> lock(m_outLock);
+		m_outBytes.clear();
+		m_outEnds.clear();
+		m_outNext = 0;
+		uint8_t msg[16 + 32 * 4];
+		auto put = [&](size_t n) {
+			m_outBytes.insert(m_outBytes.end(), msg, msg + n);
+			m_outEnds.push_back(uint32_t(m_outBytes.size()));
+		};
+		const mt32::Effect &u = m_fx;
+		const uint8_t rev[3] = { uint8_t(w.mode >= 0 ? w.mode : u.mode), uint8_t(w.time >= 0 ? w.time : u.time),
+		                         uint8_t(w.level >= 0 ? w.level : u.level) };
+		if (rev[0] != u.mode || rev[1] != u.time || rev[2] != u.level)
+			put(dt1(0x10, 0x00, 0x01, rev, 3, msg));
+		for (unsigned p = 0; p < 8; p ++)
+			if (w.part[p] >= 0 && (w.part[p] != 0) != u.partReverb[p])
+			{
+				const uint8_t on = uint8_t(w.part[p]);
+				put(dt1(0x03, 0x00, uint8_t(p * 0x10 + 6), &on, 1, msg));
+			}
+		if (w.part[8] >= 0)
+		{
+			uint8_t keys[mt32::Effect::kMaxRhythmKeys * 4];
+			std::memcpy(keys, u.rhythm, sizeof keys);
+			bool differs = false;
+			for (unsigned k = 0; k < u.rhythmKeys; k ++)
+			{
+				differs = differs || keys[k * 4 + 3] != uint8_t(w.part[8]);
+				keys[k * 4 + 3] = uint8_t(w.part[8]);
+			}
+			// 32 keys a message; the rhythm setup from 03 01 10, 4 bytes a key.
+			for (unsigned k = 0; differs && k < u.rhythmKeys; k += 32)
+			{
+				const unsigned n = std::min(32u, u.rhythmKeys - k);
+				const uint32_t lin = (0x03u << 14 | 0x01u << 7 | 0x10u) + k * 4;
+				put(dt1(uint8_t(lin >> 14), uint8_t(lin >> 7 & 0x7F), uint8_t(lin & 0x7F), keys + k * 4, n * 4, msg));
+			}
+		}
+		m_outPending.store(!m_outEnds.empty());
+	}
+
+	/// "fxstate" for the tab: the unit's reverb, with what the tab asked for over it.
+	void publishFx(const FxWant &w)
+	{
+		std::string s;
+		if (m_fxKnown)
+		{
+			const mt32::Effect &u = m_fx;
+			char sw[10] = {};
+			for (unsigned p = 0; p < 8; p ++)
+				sw[p] = (w.part[p] >= 0 ? w.part[p] != 0 : u.partReverb[p]) ? '1' : '0';
+			sw[8] = (w.part[8] >= 0 ? w.part[8] != 0 : u.rhythmReverb()) ? '1' : '0';
+			char buf[48];
+			std::snprintf(buf, sizeof buf, "%d %d %d %s", w.mode >= 0 ? w.mode : u.mode,
+			              w.time >= 0 ? w.time : u.time, w.level >= 0 ? w.level : u.level, sw);
+			s = buf;
+		}
+		std::lock_guard<std::mutex> lock(m_statusLock);
+		if (s != m_fxState)
+		{
+			m_fxState = s;
+			m_statusPending.store(true);
 		}
 	}
 
@@ -1055,6 +1337,29 @@ private:
 	std::atomic<bool> m_readRequest { false };      // run() starts a reading
 	std::atomic<uint32_t> m_blocks { 0 };           // blocks run() rendered
 	uint32_t m_panelQuiet = 0, m_panelSettle = 12000;   // run(): frames since the panel was touched
+
+	// The EFFECT tab.  Asked for, not yet sent: under m_fxLock.  The unit's reverb as the
+	// worker last read it: under m_romLock.  The fxstate string: under m_statusLock.
+	std::mutex m_fxLock;
+	FxWant m_fxWant;
+	bool m_fxUnsent = false;
+	std::chrono::steady_clock::time_point m_fxTouched {}, m_fxSentAt {};
+	mt32::Effect m_fx;
+	bool m_fxKnown = false;
+	uint64_t m_fxRev = 0;
+	std::string m_fxState;
+	// The parts' reverb switches this instance keeps (state "reverbsw"), and the channel each
+	// part receives on (from the copy of the unit's memory; power-on: parts 1-8 on 2-9).
+	std::atomic<bool> m_partSw[8] { true, true, true, true, true, true, true, true };
+	std::atomic<uint8_t> m_partChan[8] { 1, 2, 3, 4, 5, 6, 7, 8 };
+	// Messages the worker made for run() to send, one at a time (pumpOutbox): the bytes, and
+	// where each message ends.  Under m_outLock; run() only tries it.
+	std::mutex m_outLock;
+	std::vector<uint8_t> m_outBytes;
+	std::vector<uint32_t> m_outEnds;
+	size_t m_outNext = 0;
+	std::atomic<bool> m_outPending { false };
+	uint32_t m_outWait = 0;                         // run(): frames until the next may go
 
 	std::atomic<bool> m_keyDown[kNumKeys] {};
 	std::atomic<uint32_t> m_keySeq[kNumKeys];

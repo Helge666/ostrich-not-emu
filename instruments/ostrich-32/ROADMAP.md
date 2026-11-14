@@ -65,6 +65,39 @@
       of shallow submodules; cache them if it is slow.
 - [x] GitHub: part of the monorepo `Helge666/ostrich-not-emu` instead of a repository of
       its own (13.11.2026).
+- [x] The **EFFECT tab** (the owner, 14.11.2026; it replaced the REVERB MODE button planned
+      earlier the same day; done 14.11.2026). Tabs UNIT and EFFECT top right; EFFECT sets
+      what the unit can do but its panel cannot reach, or only with two switches held:
+      - Reverb mode (Room, Hall, Plate, Tap Delay), time (1-8) and level (0-7): the system
+        area, 10 00 01-03.
+      - The unit's own presets 0-10: on the unit MASTER VOLUME held, then VOLUME, shows
+        "** Reverb mode : n" and the knob picks n (bands of about 100 of the pot's 1024).
+        Each sets Room and a time and level, measured on 1.04, 1.05, 1.06 and 1.07, all
+        alike (time as 1-8): 0 = 1/0, 1 = 3/0, 2 = 4/1, 3 = 5/2, 4 = 5/3, 5 = 6/3 (the
+        power-on setting), 6 = 6/4, 7 = 6/5, 8 = 6/6, 9 = 6/7, 10 = 7/7. The tab sends these
+        values as SysEx; a preset is lit while the settings are one of them.
+      - Reverb on/off per part 1-8: the patch temp's reverb switch (offset 6). The firmware
+        has only on/off, no send level per part. It is on at power-on and in all 128 factory
+        patches, and the old unit's panel cannot change it (the owner's question,
+        14.11.2026: in their 1987 recordings some parts seem dry; with the built-in sounds
+        every part went through the reverb, so that is more likely the pans -- power-on:
+        part 7 hard left, part 8 hard right -- the levels and the sounds' own envelopes).
+      - RHYTHM's reverb as one switch (the owner's decision): every key of the rhythm setup
+        at once (03 01 10, 4 bytes a key, the switch the 4th; 64 keys on the old board, 85
+        on the new), in messages of 32 keys with the keys' other bytes as the unit has them.
+      How (the owner's decisions, 14.11.2026): the tab shows the unit's reverb as the copy
+      of its memory has it (`Core::effect()`), read by the worker thread whenever it
+      changed. What the tab asks for is sent once it has been left alone for 250 ms, only
+      where it differs from the unit, one message at a time with the time the firmware
+      wants (as a restore), never while a reading or restore is under way. On the old
+      firmware a part's switch reloads its sound and may cut its notes (accepted). A
+      program change brings the patch's own switch back: where this instance has a part's
+      switched off (state `reverbsw`, kept in the session), the plugin sends it off again
+      right after the program change, at the same frame, before the notes that follow. A
+      new instance starts with the power-on settings. Checked through the CLAP
+      (`ostrich_clap_render --midi`): Plate, preset 9, a part off, RHYTHM off, the
+      re-send after a program change, a session restored into a new instance; the sound
+      of a note unchanged, bit for bit.
 
 ## Ongoing
 
@@ -82,43 +115,8 @@ First target: the **old MT-32** (control ROM v1.04, 1.05, 1.06, 1.07, Blue Ridge
 and reverb ROM of the old board). The owner's own unit was bought in 1987, so an early
 version; the panel and the defaults follow the old MT-32, the earliest set (v1.04) first.
 These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ostrich-32`).
-The owner's order (14.11.2026): the settings tab, then the separate outputs.
+The owner's order (14.11.2026): the separate outputs next.
 
-- [ ] A **settings tab** for the effect (the owner, 14.11.2026; it replaces the REVERB
-      MODE button planned earlier the same day). It offers what the unit can do but only
-      SysEx or a two-switch combination reaches:
-      - The preset reverb settings (0-10) the unit's panel picks with MASTER VOLUME and
-        VOLUME held together and the knob. Check on 1.04 to 1.07 what each preset sets.
-      - Reverb mode (Room, Hall, Plate, Tap Delay), time (1-8) and level (0-7): the system
-        area, 10 00 01-03.
-      - Reverb on/off per part 1-8: the patch temp's reverb switch (offset 6). The
-        firmware has only on/off, no send level or mix per part. It is on at power-on and
-        in all 128 factory patches, and the old unit's panel cannot change it (the
-        owner's question, 14.11.2026: in their 1987 recordings some parts seem dry; with
-        the built-in sounds every part went through the reverb, so that is more likely
-        the pans -- power-on: part 7 hard left, part 8 hard right -- the levels and the
-        sounds' own envelopes).
-      - Reverb on/off for RHYTHM as a whole (the owner's decision, 14.11.2026): the switch
-        of every rhythm key at once (the rhythm setup, 4 bytes per key from 03 01 10, the
-        switch is the 4th byte; 64 keys 24-87 on the old firmware, 85 keys 24-108 on the
-        new one). Per key perhaps later.
-      The owner's decisions (14.11.2026):
-      - On the old firmware any write to a patch temp reloads the part's timbre, which
-        may cut its notes. Acceptable, one does not do it all the time. But many changes
-        in a row must not reach the firmware quickly (the stutter of the first setup
-        reading): send only the last value of a control, once it has been left alone for
-        a while (250 ms, as the panel reading), and only when it differs from the unit's.
-      - A program change copies the patch's own switch (on in all 128 factory patches)
-        into the patch temp: the plugin sends the part's switch again after every program
-        change on that part's channel. The switches belong to the instance and its
-        session; instances do not share them.
-      - A new instance always starts with the defaults (the unit's power-on: reverb on
-        everywhere, the factory reverb settings), never with another instance's settings.
-      Everything goes in as SysEx through the core. The session already keeps the unit's
-      side: the setup's copy follows every message, and the reading covers the system
-      area and the patch temps (the rhythm setup only through the copy, as the panel
-      cannot change it). The per-part switches the plugin re-sends are a state of their
-      own.
 - [ ] **Separate outputs**: one stereo output per part 1-8 plus RHYTHM (the owner,
       14.11.2026). Always dry: the reverb is heard only on the main output (the owner's
       decision). Open how: the LA32 chip mixes all partials into one DAC stream and the
@@ -145,6 +143,9 @@ The owner's order (14.11.2026): the settings tab, then the separate outputs.
 
 ## Later
 
+- [ ] Reverb on/off per rhythm key (the owner, 14.11.2026: perhaps later; RHYTHM has one
+      switch for all keys now). Layout ideas: a keyboard strip, or a list grouped by kind
+      with a switch per group; a note on channel 10 selects its key.
 - [ ] SysEx in for VST3 (nice to have, not essential; the owner, 14.11.2026, as for the
       other plugins): CLAP and standalone pass it already; VST3 needs the DPF fork, as for
       Ostrich 55.

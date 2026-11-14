@@ -67,8 +67,23 @@ enum States : uint32_t
 	kStateMidiPorts,    // DSP -> UI: MIDI IN ports
 	kStateSetup,        // host session: "<machine> <SysEx as hex> ...", the unit's setup
 	kStatePartCh,       // host session, UI <-> DSP: "1" = channels 1-8 play parts 1-8
+	kStateFx,           // UI -> DSP: "<n> <what> <value>", the EFFECT tab (below)
+	kStateFxState,      // DSP -> UI: the reverb as the unit has it (below)
+	kStateReverbSw,     // host session: "11111111", parts 1-8's reverb switch, set again
+	                    // after every program change
 	kStateCount
 };
+
+// The EFFECT tab.  "fx": "mode <0-3>", "time <0-7>", "level <0-7>", "preset <0-10>" or
+// "part <0-8> <0|1>" (8 = RHYTHM).  "fxstate": "<mode> <time> <level> <switches>", the
+// switches as nine '0'/'1' for parts 1-8 and RHYTHM; empty while no machine runs.
+constexpr int kReverbModes = 4, kReverbTimes = 8, kReverbLevels = 8, kReverbPresets = 11;
+const char *const kReverbModeNames[kReverbModes] = { "ROOM", "HALL", "PLATE", "TAP DELAY" };
+/// The unit's own reverb settings, 0-10: MASTER VOLUME held, then VOLUME, and the knob
+/// ("** Reverb mode : n").  Each sets Room and a time and level (time as 0-7); measured on
+/// 1.04, 1.05, 1.06 and 1.07, all alike.
+constexpr uint8_t kReverbPresetTime[kReverbPresets]  = { 0, 2, 3, 4, 4, 5, 5, 5, 5, 5, 6 };
+constexpr uint8_t kReverbPresetLevel[kReverbPresets] = { 0, 0, 1, 2, 3, 3, 4, 5, 6, 7, 7 };
 
 // "romset": for the old MT-32, whether its control ROM, PCM ROM and reverb ROM were found
 // ("found" or ""), then the folder new images are copied to; fields split by kFieldSep.

@@ -121,15 +121,21 @@ line lists; the panel's CHOOSE FILE copies them there. It starts the control ROM
 session names, else v1.04, else the first complete one.
 
 `shared/tools/ostrich_clap_render.c` (the monorepo's, for all instruments) loads the CLAP
-without a host or a display, plays a note, presses panel switches, saves and prints the
-state and writes the output to a WAV. The MT-32's first part listens on channel 2:
+without a host or a display, plays a note, sends MIDI (`--midi`, a program change say),
+presses panel switches, loads, saves and prints the state and writes the output to a WAV.
+With PART = CH on (the default) channel 1 plays part 1:
 
 ```bash
 gcc -std=gnu11 -O2 -o /tmp/render ../../shared/tools/ostrich_clap_render.c \
     -I../../third_party/dpf/distrho/src -ldl -lm
 OSTRICH32_ROMS=/path/to/roms /tmp/render plugin/bin/Ostrich32.clap /tmp/out.wav \
-    --channel 2 --show-state
+    --channel 1 --show-state
 ```
+
+The EFFECT tab is checked this way too: a saved state with `fx` set to what the tab would
+send (`1 mode 2`, `1 preset 9`, `1 part 2 0`) is loaded with `--load`, and the saved
+`setup` shows what reached the unit; `reverbsw` with a part off plus `--midi c205@4.0`
+checks that the switch is sent again after a program change.
 
 Its options are described at the top of the source. Without ROMs the plugin stays silent
 and says so in its status; that is the test CI can run.

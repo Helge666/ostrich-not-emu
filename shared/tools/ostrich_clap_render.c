@@ -17,6 +17,8 @@
     --param LIST     "id=value,...": parameters set before the first block
     --press LIST     "id[@sec],...": parameters pressed (1.0) for 0.1 s, a bare id at 2.0 s
                      -- the panel keys of Ostrich 32, 55 and 220
+    --midi LIST      "hex[@sec],...": short MIDI messages (a program change "c205@1.5"),
+                     a bare one at 0.5 s
     --load FILE      a state saved before (--save), loaded before the first block
     --save FILE      the state after the last block goes to this file
     --show-state     prints the state (DPF writes text; what is not printable as '.')
@@ -66,7 +68,7 @@ static const clap_host_t host = {
 
 // ---- events in --------------------------------------------------------------------------
 
-typedef union { clap_event_header_t header; clap_event_note_t note; clap_event_param_value_t param; } event_t;
+typedef union { clap_event_header_t header; clap_event_note_t note; clap_event_param_value_t param; clap_event_midi_t midi; } event_t;
 typedef struct { event_t ev[MAX_EVENTS]; uint32_t n; } events_t;
 static uint32_t in_size(const clap_input_events_t *l) { return ((const events_t *)l->ctx)->n; }
 static const clap_event_header_t *in_get(const clap_input_events_t *l, uint32_t i)
@@ -99,6 +101,20 @@ static void add_note(events_t *evs, uint32_t time, bool on, int channel, int key
 	e->header.type = on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF;
 	e->note_id = -1; e->port_index = 0; e->channel = (int16_t)channel; e->key = (int16_t)key;
 	e->velocity = velocity;
+}
+
+static void add_midi(events_t *evs, uint32_t time, const uint8_t data[3])
+{
+	if (evs->n >= MAX_EVENTS)
+		return;
+	clap_event_midi_t *e = &evs->ev[evs->n ++].midi;
+	memset(e, 0, sizeof(*e));
+	e->header.size = sizeof(*e);
+	e->header.time = time;
+	e->header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+	e->header.type = CLAP_EVENT_MIDI;
+	e->port_index = 0;
+	memcpy(e->data, data, 3);
 }
 
 // CLAP wants a block's events in time order; those at one time keep theirs.
@@ -183,6 +199,7 @@ static int usage(const char *self)
 {
 	fprintf(stderr, "usage: %s Plugin.clap out.wav [--notes key@sec:len,...] [--hold s] [--channel n]\n"
 	                "       [--velocity n] [--rate hz] [--seconds s] [--param id=value,...] [--press id@sec,...]\n"
+	                "       [--midi hex@sec,...]\n"
 	                "       [--load file] [--save file] [--show-state] [--settle s] [--raw file]\n"
 	                "       [--midi-out file] [--realtime]       (shared/tools/ostrich_clap_render.c)\n", self);
 	return 2;
@@ -192,7 +209,7 @@ int main(int argc, char **argv)
 {
 	if (argc < 3 || argv[1][0] == '-' || argv[2][0] == '-')
 		return usage(argv[0]);
-	const char *notes_arg = "60", *param_arg = "", *press_arg = "";
+	const char *notes_arg = "60", *param_arg = "", *press_arg = "", *midi_arg = "";
 	const char *load = NULL, *save = NULL, *raw = NULL, *midi_out = NULL;
 	double hold = 2.0, rate = 48000.0, seconds = 6.0, settle = 0.0;
 	int channel = 1, velocity = 100;
@@ -212,6 +229,7 @@ int main(int argc, char **argv)
 		else if (strcmp(a, "--seconds") == 0) seconds = atof(v);
 		else if (strcmp(a, "--param") == 0) param_arg = v;
 		else if (strcmp(a, "--press") == 0) press_arg = v;
+		else if (strcmp(a, "--midi") == 0) midi_arg = v;
 		else if (strcmp(a, "--load") == 0) load = v;
 		else if (strcmp(a, "--save") == 0) save = v;
 		else if (strcmp(a, "--settle") == 0) settle = atof(v);
@@ -247,6 +265,16 @@ int main(int argc, char **argv)
 		const char *at = strchr(t, '@');
 		presses[npresses].id = (uint32_t)atoi(t);
 		presses[npresses ++].at = at ? atof(at + 1) : 2.0;
+	}
+
+	struct { uint8_t data[3]; double at; } midis[MAX_ITEMS]; int nmidis = 0;
+	for (char *t = strtok(strdup(midi_arg), ","); t && nmidis < MAX_ITEMS; t = strtok(NULL, ","))
+	{
+		const char *at = strchr(t, '@');
+		unsigned b[3] = { 0, 0, 0 };
+		if (sscanf(t, "%2x%2x%2x", &b[0], &b[1], &b[2]) < 2) continue;
+		for (int k = 0; k < 3; k ++) midis[nmidis].data[k] = (uint8_t)b[k];
+		midis[nmidis ++].at = at ? atof(at + 1) : 0.5;
 	}
 
 	// ---- the plugin ----------------------------------------------------------------------
@@ -325,6 +353,12 @@ int main(int argc, char **argv)
 				if (at >= pos && at < pos + FRAMES)
 					add_param(&evs, at - pos, presses[j].id, k ? 0.0 : 1.0);
 			}
+		for (int j = 0; j < nmidis; j ++)
+		{
+			const uint32_t at = (uint32_t)(rate * midis[j].at);
+			if (at >= pos && at < pos + FRAMES)
+				add_midi(&evs, at - pos, midis[j].data);
+		}
 		sort_events(&evs);
 
 		clap_input_events_t in = { &evs, in_size, in_get };

@@ -59,6 +59,22 @@
       (the firmware's pickup), so the jump changes nothing; in SOUND the pot picks the
       sound at once, so there the knob stays where it is. A drag, wheel notch or arrow
       key is one of the 128 steps the firmware tells apart.
+- [x] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
+      Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
+      publishes a release (13.11.2026, green on GitHub). 88emu's build needs about 660 MB
+      of shallow submodules; cache them if it is slow.
+- [x] GitHub: part of the monorepo `Helge666/ostrich-not-emu` instead of a repository of
+      its own (13.11.2026).
+
+## Ongoing
+
+- The owner's listening check, by rebuilding songs (begun 14.11.2026; not a step but an
+  evaluation that goes on alongside everything else). The owner's MT-32 songs of 1987
+  survive only as digitised cassette recordings (no MIDI files), made with the built-in
+  sounds only; the owner rebuilds some of them in Ostrich 32 and compares by ear. What it
+  needs: the presets as the firmware has them, sample-accurate MIDI, the display and
+  buttons for finding sounds, the early firmwares selectable (v1.04 default, 1.05 to 1.07
+  to try).
 
 ## Next
 
@@ -66,47 +82,8 @@ First target: the **old MT-32** (control ROM v1.04, 1.05, 1.06, 1.07, Blue Ridge
 and reverb ROM of the old board). The owner's own unit was bought in 1987, so an early
 version; the panel and the defaults follow the old MT-32, the earliest set (v1.04) first.
 These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ostrich-32`).
+The owner's order (14.11.2026): the settings tab, then the separate outputs.
 
-- [ ] Listening check by the owner, by rebuilding songs: the owner's MT-32 songs of 1987
-      survive only as digitised cassette recordings (no MIDI files), made with the built-in
-      sounds only. The owner plans to rebuild some of them faithfully in Ostrich 32 and
-      compare by ear. So what matters first: the presets as the firmware has them,
-      sample-accurate MIDI, the display and buttons for finding sounds, and the early
-      firmwares selectable (v1.04 default, 1.05 to 1.07 to try). SysEx stays planned (DOS
-      games load their sounds with it), but after the basics.
-- [ ] The owner's first look on Windows: the VST3 in Cubase (installed by
-      `tools\install-plugins.ps1` in `C:\Program Files\Common Files\VST3`, the CLAP in
-      `...\Common Files\CLAP`; from the monorepo it works in Cubase, 13.11.2026), the switches
-      and the knob against the unit's behaviour, switching the control ROM. Seen in the
-      standalone (12.11.2026): the ROMs from a zip are taken; a keyboard plays once it
-      sends on channel 2. The VST3 in Cubase (12.11.2026): playable latency; switches,
-      knob, display and sound work. Still to see: switching the control ROM, and the
-      session restoring it.
-- [ ] Testing happens in the plugin in Cubase from now on: the Windows standalone's
-      latency is unplayable even at 64 frames (as for Ostrich 55: WASAPI shared mode
-      through RtAudio calls in bursts of a device period). Lower latency there needs
-      WASAPI low-latency shared mode or ASIO in our DPF fork, with the owner.
-- [ ] SysEx in: CLAP and standalone pass it; VST3 needs the DPF fork, as for Ostrich 55.
-- [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
-      dot matrix (the font of its controller), the body, the switches and the knob after
-      the unit. Extra functions in the bar, as few as possible.
-- [ ] The MIDI MESSAGE lamp is read 30 times a second; a short blink may be missed. Read
-      the LEDs every block if it looks wrong.
-- [ ] States meant only for the panel (status, romset, machines, panel) end up in the saved
-      session too (seen in the CLAP state); harmless, but tidy that up (Ostrich 55 too).
-- [ ] Real-time safety: `emu88_get_display_text` builds a `std::string`; read the display
-      once per block or less, or find an allocation-free way. The setup's copy of the unit's
-      memory takes a mutex on the audio thread for every message that writes memory (88emu's
-      `StateTracker`), held while the host saves (`createRestore`), and the answers to the
-      data requests are parsed there into vectors.
-- [ ] A per-part reverb switch in the bar or a list (the owner's question, 14.11.2026: in
-      their 1987 recordings some parts seem dry). The MT-32 has a reverb switch per part
-      (patch temp, offset 6) and per rhythm key; it is on at power-on, in all 128 factory
-      patches and for every rhythm key, and the old unit's panel cannot change it -- only
-      SysEx can. So with the built-in sounds every part went through the reverb; what
-      sounds dry is more likely the pans (power-on: part 7 hard left, part 8 hard right),
-      the levels and the sounds' own envelopes. Switching it from the plugin would be SysEx
-      the session keeps anyway.
 - [ ] A **settings tab** for the effect (the owner, 14.11.2026; it replaces the REVERB
       MODE button planned earlier the same day). It offers what the unit can do but only
       SysEx or a two-switch combination reaches:
@@ -115,7 +92,12 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
       - Reverb mode (Room, Hall, Plate, Tap Delay), time (1-8) and level (0-7): the system
         area, 10 00 01-03.
       - Reverb on/off per part 1-8: the patch temp's reverb switch (offset 6). The
-        firmware has only on/off, no send level or mix per part.
+        firmware has only on/off, no send level or mix per part. It is on at power-on and
+        in all 128 factory patches, and the old unit's panel cannot change it (the
+        owner's question, 14.11.2026: in their 1987 recordings some parts seem dry; with
+        the built-in sounds every part went through the reverb, so that is more likely
+        the pans -- power-on: part 7 hard left, part 8 hard right -- the levels and the
+        sounds' own envelopes).
       - Reverb on/off for RHYTHM as a whole (the owner's decision, 14.11.2026): the switch
         of every rhythm key at once (the rhythm setup, 4 bytes per key from 03 01 10, the
         switch is the 4th byte; 64 keys 24-87 on the old firmware, 85 keys 24-108 on the
@@ -144,15 +126,32 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
       emulation to sum the partials per part as well, with the partial-to-part assignment
       taken from the firmware's RAM. Research first (88emu's LA32 and the firmware's
       partial table); a change in our gearmulator fork.
-- [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
-      Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
-      publishes a release. Written 13.11.2026; green on GitHub (13.11.2026). 88emu's
-      build needs about 660 MB of shallow submodules; cache them if it is slow.
-- [x] GitHub: part of the monorepo `Helge666/ostrich-not-emu` instead of a repository of
-      its own (13.11.2026).
+- [ ] The owner's look on Windows: the VST3 in Cubase (installed by
+      `tools\install-plugins.ps1` in `C:\Program Files\Common Files\VST3`, the CLAP in
+      `...\Common Files\CLAP`). Seen: playable latency; switches, knob, display and sound
+      work (12.11.2026); switching the control ROM works (14.11.2026). Still to see: the
+      session restoring the control ROM.
+- [ ] Testing happens in the plugin in Cubase from now on: the Windows standalone's
+      latency is unplayable even at 64 frames (as for Ostrich 55: WASAPI shared mode
+      through RtAudio calls in bursts of a device period). Lower latency there needs
+      WASAPI low-latency shared mode or ASIO in our DPF fork, with the owner.
+- [ ] States meant only for the panel (status, romset, machines, panel) end up in the saved
+      session too (seen in the CLAP state); harmless, but tidy that up (Ostrich 55 too).
+- [ ] Real-time safety: `emu88_get_display_text` builds a `std::string`; read the display
+      once per block or less, or find an allocation-free way. The setup's copy of the unit's
+      memory takes a mutex on the audio thread for every message that writes memory (88emu's
+      `StateTracker`), held while the host saves (`createRestore`), and the answers to the
+      data requests are parsed there into vectors. No dropout heard from it so far.
 
 ## Later
 
+- [ ] SysEx in for VST3 (nice to have, not essential; the owner, 14.11.2026, as for the
+      other plugins): CLAP and standalone pass it already; VST3 needs the DPF fork, as for
+      Ostrich 55.
+- [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
+      dot matrix (the font of its controller), the body, the switches and the knob after
+      the unit. Less important than SysEx in, perhaps not needed at all (the owner,
+      14.11.2026).
 - [ ] The new MT-32 (control ROM v2.03, 2.04, 2.06, 2.07), the CM-32L / LAPC-I (v1.00,
       1.02) and the CM-32LN (v1.00): 88emu runs them, but they need the reverb ROM
       R15179917, which is not at hand. Dumps of all other images but v2.03 are

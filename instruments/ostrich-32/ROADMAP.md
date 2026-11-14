@@ -107,14 +107,41 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
       sounds dry is more likely the pans (power-on: part 7 hard left, part 8 hard right),
       the levels and the sounds' own envelopes. Switching it from the plugin would be SysEx
       the session keeps anyway.
-- [ ] A **REVERB MODE** button (the owner, 14.11.2026). On the unit, MASTER VOLUME and
-      VOLUME held together let the knob pick one of the preset reverb settings (0-10). A
-      click cannot hold two switches, so the new button latches: pressed once, it holds
-      both switches for the firmware (the key mask in `run()`/`tickKeys` keeps their bits
-      set while latched), the knob selects, and the display stays the firmware's; pressed
-      again, it releases them and the selection ends. The knob's motor must keep still
-      while it is latched. Check on 1.04 to 1.07 what the firmware shows and when it takes
-      the value; the session keeps the result (system area, already read).
+- [ ] A **settings tab** for the effect (the owner, 14.11.2026; it replaces the REVERB
+      MODE button planned earlier the same day). It offers what the unit can do but only
+      SysEx or a two-switch combination reaches:
+      - The preset reverb settings (0-10) the unit's panel picks with MASTER VOLUME and
+        VOLUME held together and the knob. Check on 1.04 to 1.07 what each preset sets.
+      - Reverb mode (Room, Hall, Plate, Tap Delay), time (1-8) and level (0-7): the system
+        area, 10 00 01-03.
+      - Reverb on/off per part 1-8: the patch temp's reverb switch (offset 6). The
+        firmware has only on/off, no send level or mix per part. Two catches:
+        - On the old firmware any write to a patch temp reloads the part's timbre, which
+          may cut its notes; write it only when the switch changes.
+        - A program change copies the patch's own switch (on in all 128 factory patches)
+          into the patch temp. So the plugin either sends the part's switch again after
+          every program change on its channel, or the tab says that a program change
+          resets it. To decide with the owner.
+      Everything goes in as SysEx through the core. The session already keeps the
+      result: the setup's copy follows every message, and the reading covers the system
+      area and the patch temps.
+- [ ] Reverb on/off per rhythm key (the rhythm setup, 4 bytes per key from 03 01 10, the
+      switch is the 4th byte): 64 keys (24-87) on the old firmware, 85 (24-108) on the
+      new one. How to show that many switches in little room: **to discuss with the
+      owner**. Ideas:
+      - A keyboard strip of the keys (one octave or so wide, scrolling), each key lit when
+        its reverb is on, with the sound's name on hover.
+      - A list grouped by kind (kicks, snares, toms, hi-hats, cymbals, percussion, the
+        rest), one switch per group that can be opened to the single keys.
+      - "Learn": a note on channel 10 selects its key in the list.
+      - All on / all off.
+- [ ] **Separate outputs**: one stereo output per part 1-8 plus RHYTHM (the owner,
+      14.11.2026). Open how: the LA32 chip mixes all partials into one DAC stream and the
+      reverb works on that sum, so 88emu has no per-part signal. It would need the LA32
+      emulation to sum the partials per part, with the partial-to-part assignment taken
+      from the firmware's RAM. The reverb would then stay on the main output or need one
+      send per part. Research first (88emu's LA32 and the firmware's partial table); a
+      change in our gearmulator fork.
 - [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
       publishes a release. Written 13.11.2026; green on GitHub (13.11.2026). 88emu's

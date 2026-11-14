@@ -13,13 +13,19 @@ reverb running the original microcode, so the sound, the display, the buttons an
 all behave as the firmware makes them. Ostrich 32 adds the plugin around it: VST3, CLAP
 and a standalone program, and a panel that looks and handles like the hardware.
 
+![Ostrich 32: the MT-32's display, switches and VOLUME knob, and the bar with EFFECT, PART = CH and the control ROM](docs/ostrich32.png)
+
+![The EFFECT page: reverb mode, time and level, the unit's own presets 0-10, and the reverb per part](docs/effect.png)
+
 You need your own ROM images. **This repository contains no Roland data and never will.**
 
-**[Download Ostrich 32](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich32-v0.1.0)** (Windows and Linux zips), or
+**[Download Ostrich 32](https://github.com/Helge666/ostrich-not-emu/releases/tag/ostrich32-v0.2.0)** (Windows and Linux zips), or
 build it from source ([BUILDING.md](BUILDING.md)).
 
-**Status: first release, early.** It plays, with a plain first panel (display, switches,
-knob); the panel after the unit comes next ([ROADMAP.md](ROADMAP.md)).
+**Status: 0.2.0, early.** It plays, with a plain panel (display, switches, knob); the
+session keeps the unit's setup and the panel's screen, and the EFFECT page reaches the
+reverb settings the unit's panel cannot. Separate outputs per part come next
+([ROADMAP.md](ROADMAP.md)).
 
 ## Installing (Windows)
 

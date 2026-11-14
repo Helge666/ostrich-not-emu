@@ -74,6 +74,10 @@
       nothing, no screen times out to the main one. Checked through the CLAP: after a
       session with PART 4 and SOUND is loaded, VOLUME leads to PART 4's volume (to PART 1's
       without the restore); the same on 1.07.
+- [x] Release 0.2.0 (14.11.2026): the setup and screen kept, EFFECT, PART = CH, the
+      following knob. Screenshots of the panel and EFFECT in the README (docs/, taken from
+      the Windows standalone; its MIDI IN and BUFFER fields painted over, as the plugin has
+      none). Separate outputs go into a later version.
 - [x] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
       publishes a release (13.11.2026, green on GitHub). 88emu's build needs about 660 MB

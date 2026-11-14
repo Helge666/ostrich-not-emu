@@ -73,9 +73,23 @@ and to Sergey V. Mikayev (Munt).
 
 Each zip has an INSTALL.txt. You need your own ROM images; none are included.
 
+## New in 0.2.0
+
+- **The session keeps the unit's setup:** the sound each part plays, levels, pans, reverb,
+  master volume, whatever came by program change, SysEx or from the panel -- and the
+  screen the panel was left on (PART 4 with VOLUME, say), which it shows again.
+- **EFFECT** (in the bar): the reverb's mode (Room, Hall, Plate, Tap Delay), time and
+  level; the unit's own reverb presets 0-10 (on the unit: MASTER VOLUME held, then
+  VOLUME, and the knob); the reverb on or off per part and for RHYTHM. A part switched off
+  stays dry after a program change.
+- **PART = CH** (on by default): MIDI channels 1-8 play parts 1-8, RHYTHM on 10. Untick
+  it for the unit's own channels (parts 1-8 on 2-9).
+- **The VOLUME knob follows the value on the display** (master volume, a part's, RHYTHM's).
+
 ## How well tested
 
-- **Windows VST3:** tested in Cubase.
+- **Windows VST3:** tested in Cubase (0.1.0; what is new in 0.2.0 so far on Linux only).
+- **Linux:** what is new in 0.2.0 tested in a DAW by the author.
 - **Everything else: untested.** It builds without errors, and an automatic test loads the
   Linux CLAP once (without ROMs or panel).
 

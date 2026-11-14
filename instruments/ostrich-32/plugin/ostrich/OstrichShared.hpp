@@ -71,8 +71,13 @@ enum States : uint32_t
 	kStateFxState,      // DSP -> UI: the reverb as the unit has it (below)
 	kStateReverbSw,     // host session: "11111111", parts 1-8's reverb switch, set again
 	                    // after every program change
+	kStateScreen,       // host session: the panel's screen, "part 4 volume" (below)
 	kStateCount
 };
+
+// "screen": where the panel was left -- "main" (MASTER VOLUME), "rhythm", or "part <1-5>
+// volume", "part <n> sound", "part <n> group" (PART n after VOLUME, SOUND or SOUND GROUP).
+// A machine that starts (a session loaded, another control ROM) is brought back there.
 
 // The EFFECT tab.  "fx": "mode <0-3>", "time <0-7>", "level <0-7>", "preset <0-10>" or
 // "part <0-8> <0|1>" (8 = RHYTHM).  "fxstate": "<mode> <time> <level> <switches>", the

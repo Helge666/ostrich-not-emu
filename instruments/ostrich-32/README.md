@@ -35,7 +35,8 @@ knob); the panel after the unit comes next ([ROADMAP.md](ROADMAP.md)).
    PART 2 and so on to 8; the rhythm part is on channel 10. Untick it and the MT-32 hears the
    channels as they come, as the unit does: PART 1 on channel 2 up to PART 8 on channel 9.
 5. The session keeps the unit's setup: the sound each part plays, levels, pans, reverb,
-   master volume, whatever came by program change or SysEx or from the panel.
+   master volume, whatever came by program change or SysEx or from the panel -- and the
+   screen the panel was left on (PART 4 with VOLUME, say), which it shows again.
 6. **EFFECT** in the bar shows, in the unit's place, what the unit's panel cannot reach
    (click it again for the unit): the reverb's mode
    (Room, Hall, Plate, Tap Delay), time and level, the unit's own reverb presets 0-10, and

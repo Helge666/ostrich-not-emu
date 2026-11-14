@@ -326,6 +326,12 @@ protected:
 			state.label = "Reverb per part";
 			state.hints = kStateIsOnlyForDSP;
 			break;
+		case kStateScreen:
+			// Saved with the session: the screen the panel was left on.
+			state.key = "screen";
+			state.label = "Panel screen";
+			state.hints = kStateIsOnlyForDSP;
+			break;
 		}
 		state.defaultValue = index == kStatePartCh ? "1" : index == kStateReverbSw ? "11111111" : "";
 	}
@@ -336,6 +342,8 @@ protected:
 			return String(const_cast<OstrichPlugin *>(this)->currentSetup().c_str());
 		if (std::strcmp(key, "partch") == 0)
 			return String(m_partCh.load() ? "1" : "0");
+		if (std::strcmp(key, "screen") == 0)
+			return String(screenName(m_screen.load()).c_str());
 		if (std::strcmp(key, "reverbsw") == 0)
 		{
 			char sw[9] = {};
@@ -445,6 +453,111 @@ protected:
 			setFx(value);
 			return;
 		}
+		if (std::strcmp(key, "screen") == 0)
+		{
+			const int s = screenOf(value);
+			if (s != kScreenUnknown)
+			{
+				m_screen.store(s);
+				m_screenRestoreAsked.store(true);
+			}
+			return;
+		}
+	}
+
+	// ---- the panel's screen ----------------------------------------------------------------
+	// Where the panel was left (PART 4 with VOLUME, say) is learnt from the display -- the
+	// firmware's own word for it -- and kept in the session.  A machine that starts is
+	// brought back there once it has booted and taken the setup: the keys pressed one after
+	// the other (PART n, then VOLUME, SOUND or SOUND GROUP; together they would be another
+	// combination).  Measured on 1.04-1.07: those keys lead there from any screen, a second
+	// press changes nothing, and no screen times out.
+
+	enum : int { kScreenUnknown = 0, kScreenMain = 1, kScreenRhythm = 2 };   // parts: 10 * n + kSub*
+	enum : int { kSubVolume = 1, kSubSound = 2, kSubGroup = 3 };
+
+	/// The screen the display shows; kScreenUnknown for any other (SysEx text, an error,
+	/// the reverb setting).
+	static int screenShown(const char *t)
+	{
+		if (t[1] == ' ' && std::memcmp(t + 13, "vol:", 4) == 0)
+			return kScreenMain;                                     // "1 2 3 4 5 R vol:100"
+		if (std::memcmp(t, "Rhythm Part |", 13) == 0)
+			return kScreenRhythm;                                   // "Rhythm Part |vol> 80"
+		if (t[0] < '1' || t[0] > '5')
+			return kScreenUnknown;
+		const int n = t[0] - '0';
+		if (t[1] == '|' && t[12] == '|' && std::memcmp(t + 13, "vol>", 4) == 0)
+			return 10 * n + kSubVolume;                             // "4|Sax 1     |vol> 80"
+		if (t[1] == '|' && t[9] == '>')
+			return 10 * n + kSubSound;                              // "4|Wind-2 >Sax 1     "
+		if (t[1] == '>' && t[9] == '|')
+			return 10 * n + kSubGroup;                              // "4>Wind-2 |Sax 1     "
+		return kScreenUnknown;
+	}
+
+	static std::string screenName(int s)
+	{
+		if (s == kScreenRhythm)
+			return "rhythm";
+		if (s >= 11 && s <= 53 && s % 10 >= kSubVolume && s % 10 <= kSubGroup)
+		{
+			static const char *const subs[] = { "", "volume", "sound", "group" };
+			return "part " + std::to_string(s / 10) + " " + subs[s % 10];
+		}
+		return "main";
+	}
+
+	static int screenOf(const char *v)
+	{
+		for (int s : { int(kScreenMain), int(kScreenRhythm) })
+			if (screenName(s) == v)
+				return s;
+		for (int n = 1; n <= 5; n ++)
+			for (int sub = kSubVolume; sub <= kSubGroup; sub ++)
+				if (screenName(10 * n + sub) == v)
+					return 10 * n + sub;
+		return kScreenUnknown;
+	}
+
+	/// run(): learns the screen from the display, or, while a machine is to be brought back
+	/// to one, presses its keys one at a time once the machine has booted and taken the setup.
+	void tickScreen(uint32_t frames)
+	{
+		if (m_screenRestoreAsked.exchange(false))
+		{
+			m_screenRestoring = true;
+			m_screenKeys = 0;
+		}
+		m_sinceStart = m_sinceStart < m_bootFrames ? m_sinceStart + frames : m_sinceStart;
+		if (!m_screenRestoring)
+			return;
+		if (m_screenKeys == 0)
+		{
+			if (m_sinceStart < m_bootFrames || m_core.busy() || m_outPending.load())
+				return;                         // not before the setup is in
+			const int s = m_screen.load();
+			m_screenKeyList[0] = m_screenKeyList[1] = -1;
+			if (s == kScreenRhythm)
+				m_screenKeyList[0] = kKeyRhythm;
+			else if (s > 10)
+			{
+				m_screenKeyList[0] = int(kKeyPart1) + s / 10 - 1;
+				m_screenKeyList[1] = s % 10 == kSubVolume ? kKeyVolume : s % 10 == kSubSound ? kKeySound : kKeySoundGroup;
+			}
+			m_screenWait = 0;
+		}
+		m_screenWait = m_screenWait > frames ? m_screenWait - frames : 0;
+		if (m_screenWait)
+			return;
+		if (m_screenKeys < 2 && m_screenKeyList[m_screenKeys] >= 0)
+		{
+			m_keySeq[m_screenKeyList[m_screenKeys]].fetch_add(1);   // a press, as a click makes it
+			m_screenKeys ++;
+			m_screenWait = m_screenGap;
+			return;
+		}
+		m_screenRestoring = false;
 	}
 
 	// ---- the EFFECT tab --------------------------------------------------------------------
@@ -526,6 +639,7 @@ protected:
 			return;
 		}
 
+		tickScreen(frames);
 		tickKeys(frames);
 		if (const int steps = m_knobSteps.exchange(0))
 		{
@@ -619,6 +733,8 @@ private:
 	static constexpr double kFxQuietSeconds = 0.25;     // then what the EFFECT tab asks is sent
 	static constexpr double kFxPollSeconds = 0.05;      // the worker looks at the effect
 	static constexpr double kFxGiveUpSeconds = 3.0;
+	static constexpr double kScreenBootSeconds = 2.5;   // the firmware listens to its panel
+	static constexpr double kScreenKeyGapSeconds = 0.4; // between the keys of a screen
 
 	/// What the EFFECT tab asks for: -1 = nothing (as the unit has it).
 	struct FxWant
@@ -634,6 +750,8 @@ private:
 		m_keyGap = uint32_t(m_hostRate * kKeyGapSeconds);
 		m_panelSettle = uint32_t(m_hostRate * kPanelQuietSeconds);
 		m_knobSettle = uint32_t(m_hostRate * kKnobSettleSeconds);
+		m_bootFrames = uint32_t(m_hostRate * kScreenBootSeconds);
+		m_screenGap = uint32_t(m_hostRate * kScreenKeyGapSeconds);
 		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
 	}
 
@@ -754,6 +872,9 @@ private:
 			{
 				std::memcpy(blob.text, text, sizeof(blob.text));
 				followValue(text);
+				if (!m_screenRestoring && !m_screenRestoreAsked.load())
+					if (const int s = screenShown(text))
+						m_screen.store(s);
 			}
 			blob.flags = uint8_t(1 | (lamp ? 2 : 0));
 			blob.knob = uint8_t((m_knob * kKnobSteps + mt32::kKnobMaximum / 2) / mt32::kKnobMaximum);
@@ -949,6 +1070,9 @@ private:
 					m_outWait = 0;
 				}
 				m_fxKnown = false;
+				m_sinceStart = 0;
+				m_screenRestoring = false;
+				m_screenRestoreAsked.store(true);   // back to the screen it was left on
 				started = true;
 			}
 			if (ok && apply)
@@ -1338,6 +1462,16 @@ private:
 	std::atomic<bool> m_readRequest { false };      // run() starts a reading
 	std::atomic<uint32_t> m_blocks { 0 };           // blocks run() rendered
 	uint32_t m_panelQuiet = 0, m_panelSettle = 12000;   // run(): frames since the panel was touched
+
+	// The panel's screen (state "screen"): as last shown, and the keys that bring a machine
+	// that starts back to it (run(), tickScreen).
+	std::atomic<int> m_screen { kScreenMain };
+	std::atomic<bool> m_screenRestoreAsked { false };
+	bool m_screenRestoring = false;
+	int m_screenKeyList[2] = { -1, -1 };
+	int m_screenKeys = 0;                           // pressed so far
+	uint32_t m_screenWait = 0, m_screenGap = 19200;
+	uint32_t m_sinceStart = 0, m_bootFrames = 120000;   // frames since the machine started
 
 	// The EFFECT tab.  Asked for, not yet sent: under m_fxLock.  The unit's reverb as the
 	// worker last read it: under m_romLock.  The fxstate string: under m_statusLock.

@@ -58,7 +58,22 @@
       adds `emu88_set_panel_knob`). A part's volume changes only once the pot passes it
       (the firmware's pickup), so the jump changes nothing; in SOUND the pot picks the
       sound at once, so there the knob stays where it is. A drag, wheel notch or arrow
-      key is one of the 128 steps the firmware tells apart.
+      key is one of the 128 steps the firmware tells apart. RHYTHM's volume too (the owner,
+      14.11.2026: the knob stood still there): its screen reads "Rhythm Part |vol> 80".
+      Which volume the knob follows comes from the display, not from the copy of the
+      unit's memory: which screen is up is the firmware's, not in its memory, and the copy
+      learns a panel change only with the next reading, after the knob has moved.
+- [x] The session keeps the panel's screen (the owner's idea, 14.11.2026: after loading,
+      the unit stood on its main screen, not on PART 4 with VOLUME where it was left).
+      Learnt from the display's text (state `screen`: "main", "rhythm", "part 4 volume",
+      "part 4 sound", "part 4 group"); a machine that starts -- a session loaded, another
+      control ROM -- is brought back there once it has booted and taken the setup: PART n,
+      then VOLUME, SOUND or SOUND GROUP, one after the other (held together they would be
+      another combination, as MASTER VOLUME + VOLUME is the reverb setting). Measured on
+      1.04-1.07: the part keeps the mode from the part before, a second press changes
+      nothing, no screen times out to the main one. Checked through the CLAP: after a
+      session with PART 4 and SOUND is loaded, VOLUME leads to PART 4's volume (to PART 1's
+      without the restore); the same on 1.07.
 - [x] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
       publishes a release (13.11.2026, green on GitHub). 88emu's build needs about 660 MB

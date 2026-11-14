@@ -111,9 +111,11 @@ public:
 	/// machine is neither started nor stopped.
 	std::string setup() const;
 
-	/// Asks the unit for what its panel can change (system area, patch temps and rhythm
-	/// setup, timbre temps); the answers come in over the next second or so of rendering.
-	/// Real-time safe.  Ignored while a restore or another reading is under way.
+	/// Asks the unit for what its panel can change (system area and patch temps, 167 bytes);
+	/// the answers come in over the next 0.4 s of rendering.  The firmware sends them
+	/// between the notes it plays: call it once the panel has been left alone, not at every
+	/// change.  Real-time safe but for the answers (they are parsed into vectors).  Ignored
+	/// while a restore or another reading is under way.
 	void readSetup();
 
 	/// Brings the machine to a setup() once it has booted: the messages go in paced as the

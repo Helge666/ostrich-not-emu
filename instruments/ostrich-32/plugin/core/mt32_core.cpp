@@ -314,6 +314,30 @@ struct Core::Impl
 	}
 
 	// What the unit sent: its answers to the readings teach the copy what the panel changed.
+	// An answer is taken as what the unit has there, without side effects (88emu's
+	// processReply).  But where the panel picked another sound for a part, the unit also
+	// loaded that timbre into the part's timbre temp; the copy does the same once it sees the
+	// selection change, as it does for a write -- so the timbre temps need not be read: a
+	// restore selects the sound and the unit loads it again.
+	void takeAnswer()
+	{
+		synthLib::SMidiEvent e(synthLib::MidiEventSource::Device);
+		e.sysex.assign(outMessage.begin(), outMessage.end());
+		const la::Memory before = tracker.memory();
+		tracker.processReply(e);
+		const la::Memory after = tracker.memory();
+		for (size_t p = 0; p < la::g_laTimbreParts; p ++)
+		{
+			const uint8_t selection[2] = { after.value(la::Area::PatchTemp, p, 0), after.value(la::Area::PatchTemp, p, 1) };
+			if (selection[0] == before.value(la::Area::PatchTemp, p, 0) && selection[1] == before.value(la::Area::PatchTemp, p, 1))
+				continue;
+			synthLib::SMidiEvent write(synthLib::MidiEventSource::Host);
+			const la::Message m = la::dt1(la::addressAdd(la::g_patchTemp, uint32_t(p * la::g_patchTempSize)), selection, 2);
+			write.sysex.assign(m.begin(), m.end());
+			tracker.process(write);
+		}
+	}
+
 	void takeAnswers()
 	{
 		for (;;)
@@ -334,9 +358,7 @@ struct Core::Impl
 				if (b == 0xF7)
 				{
 					inSysex = false;
-					synthLib::SMidiEvent e(synthLib::MidiEventSource::Device);
-					e.sysex.assign(outMessage.begin(), outMessage.end());
-					tracker.processReply(e);
+					takeAnswer();
 				}
 			}
 			if (n < sizeof outBuffer)
@@ -439,15 +461,17 @@ bool Core::start(const std::string &machine, const std::vector<std::vector<uint8
 	m_rate = sampleRate;
 
 	// The copy of the memory starts where the unit does, at power-on.  The readings: what the
-	// panel can change, area by area (patch temps and rhythm setup are one range).
+	// panel can change -- the system area (master volume) and the patch temps (each part's
+	// sound and level, the rhythm part's level), 167 bytes.  Not the timbre temps (see
+	// takeAnswer) nor the rhythm setup: the panel does not edit them, and every byte the unit
+	// sends keeps its firmware from the notes for a while (all of them, 2.4 KB, cost 4 of
+	// 40 hi-hats and moved one by 56 ms).
 	m->rate = sampleRate;
 	m->clock = 0;
 	m->tracker.setModel(board->model);
-	const la::LaFirmware fw = la::laFirmware(board->model);
 	m->requests = {
 		la::rq1(la::g_laSystem, uint32_t(la::g_laSystemSize)),
-		la::rq1(la::g_patchTemp, uint32_t(la::g_laParts * la::g_patchTempSize + la::rhythmKeyCount(fw) * 4)),
-		la::rq1(la::g_timbreTemp, uint32_t(la::g_laTimbreParts * la::g_timbreSize)),
+		la::rq1(la::g_patchTemp, uint32_t(la::g_laParts * la::g_patchTempSize)),
 	};
 	m->tracking.store(true);
 	return true;

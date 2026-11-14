@@ -32,8 +32,14 @@
 - [x] The session keeps the unit's setup (14.11.2026; the owner: "it forgets its settings").
       The core keeps a copy of the unit's memory (88emu's `mt32::StateTracker`) from every
       message the machine is given; what the panel changes it learns by data requests
-      (RQ1: system area, patch temps with rhythm setup, timbre temps), 0.5 s after the panel
-      was last touched. Saved as the state `setup` (`<machine> <SysEx as hex> ...`, from
+      (RQ1: system area and patch temps, 167 bytes), 250 ms after the panel was last
+      touched, or when the host saves before that. The firmware sends the answers between
+      the notes it plays: reading the timbre temps and rhythm setup too (2.4 KB, the first
+      version, 14.11.2026) made the owner's playing stumble -- measured, 4 of 40 hi-hats lost
+      and one 56 ms late; the 167 bytes lose none. The timbre temps need no reading: where
+      the panel picked another sound, the copy loads that timbre as the unit does, and a
+      restore selects the sound so that the unit loads it again. Saved as the state
+      `setup` (`<machine> <SysEx as hex> ...`, from
       88emu's `createRestore`), brought back after the boot, paced as the firmware wants
       (faster pacing gives "Exc. Buffer overflow" on 1.04), and carried over when the
       control ROM changes within a board. The fork's tag `ostrich-2` adds

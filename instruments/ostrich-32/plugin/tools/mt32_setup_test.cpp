@@ -5,7 +5,8 @@
 // another sound for part 1 and turns the master volume down, a program change picks a patch
 // for part 2, a SysEx switches part 3's reverb off.  Its setup is read and handed to a
 // second, freshly started machine.  That one is read in turn; both readings must be the
-// same, and a note on each part must sound the same on both.
+// same, and so must the sound each of PART 1 to 5 shows on the display.  The level of a note
+// on each part is printed besides.
 //
 //   mt32_setup_test <rom folder> [machine]
 
@@ -137,10 +138,11 @@ int main(int argc, char **argv)
 	const std::string fresh = readBack(a, "A");
 	std::printf("power-on setup: %zu characters\n", fresh.size());
 
-	// The panel: part 1's sound two further, master volume a little down.
+	// The panel: another sound for part 1, master volume a little down.  The knob is a pot
+	// (it starts fully clockwise): where it stands is what the firmware reads.
 	press(a, mt32::ButtonPart1, "A");
 	press(a, mt32::ButtonSound, "A");
-	a.panelKnob(2);
+	a.panelKnob(-6);
 	run(a, 0.5, "A");
 	press(a, mt32::ButtonMasterVolume, "A");
 	a.panelKnob(-3);
@@ -176,7 +178,7 @@ int main(int argc, char **argv)
 	const std::string setupB = readBack(b, "B");
 	std::printf("setup B: %zu characters\n", setupB.size());
 
-	const bool same = setupA == setupB;
+	bool same = setupA == setupB;
 	std::printf("readings %s\n", same ? "the same" : "DIFFERENT");
 	if (!same)
 	{
@@ -186,6 +188,35 @@ int main(int argc, char **argv)
 		std::printf("  first difference at %zu:\n  A ...%s\n  B ...%s\n", i,
 		            setupA.substr(i > 40 ? i - 40 : 0, 120).c_str(), setupB.substr(i > 40 ? i - 40 : 0, 120).c_str());
 	}
+
+	// The sound each part plays, as the firmware shows it on PART n: from its timbre temp,
+	// which the readings leave out (a restore selects the sound, the unit loads it).
+	static const uint32_t partButtons[5] = { mt32::ButtonPart1, mt32::ButtonPart2, mt32::ButtonPart3,
+	                                         mt32::ButtonPart4, mt32::ButtonPart5 };
+	bool sounds = true;
+	for (unsigned k = 0; k < 5; k ++)
+	{
+		std::string shown[2];
+		mt32::Core *const both[2] = { &a, &b };
+		for (int i = 0; i < 2; i ++)
+		{
+			// "1|Fretless 2|vol> 80", or in SOUND mode "1|Bass   >Fretless 2"; a press from
+			// another mode may only bring the main screen back.
+			char text[21] = {};
+			bool lamp = false;
+			for (int tries = 0; tries < 2 && text[1] != '|'; tries ++)
+			{
+				press(*both[i], partButtons[k], i ? "B" : "A");
+				both[i]->display(text, lamp);
+			}
+			const std::string t = text;
+			shown[i] = t.size() < 20 ? t : t[9] == '>' ? t.substr(10, 10) : t.substr(2, 10);
+		}
+		sounds = sounds && shown[0] == shown[1];
+		std::printf("  PART %u:  A [%s]  B [%s]%s\n", k + 1, shown[0].c_str(), shown[1].c_str(),
+		            shown[0] == shown[1] ? "" : "  DIFFERENT");
+	}
+	same = same && sounds;
 
 	for (const auto &[name, text] : { std::pair<const char *, const std::string *>("A", &setupA), { "B", &setupB } })
 	{

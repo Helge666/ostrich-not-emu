@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstdio>
@@ -316,7 +317,7 @@ protected:
 	String getState(const char *key) const override
 	{
 		if (std::strcmp(key, "setup") == 0)
-			return String(currentSetup().c_str());
+			return String(const_cast<OstrichPlugin *>(this)->currentSetup().c_str());
 		if (std::strcmp(key, "partch") == 0)
 			return String(m_partCh.load() ? "1" : "0");
 		std::lock_guard<std::mutex> lock(m_statusLock);
@@ -456,18 +457,22 @@ protected:
 			if (to != m_knob)
 			{
 				m_core.panelKnob(to - m_knob);
-				m_panelDirty = true;
+				m_panelTouched.store(true);
 				m_panelQuiet = 0;
 			}
 			m_knob = to;
 		}
 
 		// What MIDI changes, the core's copy of the unit's memory follows as it goes; what the
-		// panel changes, it learns by asking the unit, once the panel has been left alone.
-		if (m_panelDirty && (m_panelQuiet += frames) >= m_panelSettle && !m_core.busy())
+		// panel changed, it learns by asking the unit once the panel has been left alone for
+		// kPanelQuietSeconds (a turn of the knob is dozens of changes: one reading for all),
+		// or at once when the host saves before that (readPanel()).
+		m_panelQuiet = m_panelQuiet < m_panelSettle ? m_panelQuiet + frames : m_panelQuiet;
+		if ((m_readRequest.load() || (m_panelTouched.load() && m_panelQuiet >= m_panelSettle)) && !m_core.busy())
 		{
+			m_panelTouched.store(false);
 			m_core.readSetup();
-			m_panelDirty = false;
+			m_readRequest.store(false);
 		}
 
 		// MIDI in at its place in the block, the host's and the standalone's own merged.
@@ -507,6 +512,7 @@ protected:
 			m_core.midi(data, size, std::min(frame, frames - 1));
 		}
 		m_core.render(outL, outR, frames);
+		m_blocks.fetch_add(1);
 		publishPanel(frames, true);
 	}
 
@@ -515,15 +521,14 @@ private:
 	static constexpr double kKeyHoldSeconds = 0.08;     // long enough for the panel scan
 	static constexpr double kKeyGapSeconds = 0.04;
 	static constexpr uint32_t kKeyMaxQueued = 16;
-	static constexpr double kPanelSettleSeconds = 0.5;  // then the setup is read (run())
+	static constexpr double kPanelQuietSeconds = 0.25;  // then what the panel changed is read
 
 	void setupRate()
 	{
 		m_publishPeriod = uint32_t(m_hostRate / kPanelRefreshHz);
 		m_keyHoldFrames = uint32_t(m_hostRate * kKeyHoldSeconds);
 		m_keyGap = uint32_t(m_hostRate * kKeyGapSeconds);
-		m_panelSettle = uint32_t(m_hostRate * kPanelSettleSeconds);
-		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
+		m_panelSettle = uint32_t(m_hostRate * kPanelQuietSeconds);		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
 	}
 
 	// Presses queue up (a fast hand), each played as a press of its own: held for
@@ -561,7 +566,7 @@ private:
 		{
 			m_core.panelButtons(mask);
 			m_keyMask = mask;
-			m_panelDirty = true;
+			m_panelTouched.store(true);
 			m_panelQuiet = 0;
 		}
 	}
@@ -717,6 +722,8 @@ private:
 			apply = m_setupApply;
 			gen = m_setupGen;
 		}
+		if (!apply)
+			readPanel();                    // what the machine to be stopped has from its panel
 		std::string error;
 		bool started = false, ok = true;
 		{
@@ -737,7 +744,8 @@ private:
 				ok = m_core.start(id, m_images, m_hostRate, error);
 				m_knob = kKnobSteps;        // a new machine's knob stands fully clockwise
 				m_keyMask = 0;
-				m_panelDirty = false;
+				m_panelTouched.store(false);
+				m_readRequest.store(false);
 				started = true;
 			}
 			if (ok && apply)
@@ -776,12 +784,56 @@ private:
 			setStatus(machineName(id) + " did not start: " + error);
 	}
 
+	/// What the panel changed and run() has not read yet (the host saves, or the machine
+	/// changes, within kPanelQuietSeconds of the last touch): read now.  run() starts the
+	/// reading at its next block and it takes about 0.4 s; while the host does not run the
+	/// plugin, the reading is rendered here.  Under m_romLock, not m_machine.
+	void readPanel()
+	{
+		using clock = std::chrono::steady_clock;
+		// Also waits for a reading (or a restore) under way.
+		if (m_runningId.empty() || !(m_panelTouched.load() || m_core.busy()))
+			return;
+		if (m_panelTouched.load())
+			m_readRequest.store(true);
+		const clock::time_point start = clock::now();
+		clock::time_point progress = start;
+		uint32_t blocks = m_blocks.load();
+		while (m_readRequest.load() || m_core.busy())
+		{
+			const clock::time_point now = clock::now();
+			if (m_blocks.load() != blocks)
+			{
+				blocks = m_blocks.load();
+				progress = now;
+			}
+			if (now - start > std::chrono::seconds(3))
+				return;                         // what is known so far
+			if (now - progress > std::chrono::milliseconds(200))
+			{
+				std::lock_guard<std::mutex> lock(m_machine);
+				if (m_readRequest.load() && !m_core.busy())
+				{
+					m_panelTouched.store(false);
+					m_core.readSetup();
+					m_readRequest.store(false);
+				}
+				float l[256], r[256];
+				for (int i = 0; i < 2000 && m_core.busy(); i ++)
+					m_core.render(l, r, 256);
+				m_readRequest.store(false);
+				return;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		}
+	}
+
 	/// "mt32old" of "mt32old/1.04".
 	static std::string boardOf(const std::string &id) { return id.substr(0, id.find('/')); }
 
 	/// What the session keeps of the unit, "<machine> <SysEx as hex> ...": the running
 	/// machine's setup, else (none runs, or a restore is under way) the last one known.
-	std::string currentSetup() const
+	std::string currentSetup()
 	{
 		std::lock_guard<std::mutex> romLock(m_romLock);     // no machine starts or stops meanwhile
 		{
@@ -789,6 +841,7 @@ private:
 			if (m_setupApply)
 				return m_setup;                 // the session's, not in a machine yet
 		}
+		readPanel();
 		const std::string s = m_runningId.empty() ? std::string() : m_core.setup();
 		std::lock_guard<std::mutex> lock(m_statusLock);
 		if (!s.empty())
@@ -950,8 +1003,10 @@ private:
 	uint32_t m_setupGen = 0;
 	// PART = CH; the panel's activity, after which run() reads the setup.
 	std::atomic<bool> m_partCh { true };
-	bool m_panelDirty = false;
-	uint32_t m_panelQuiet = 0, m_panelSettle = 24000;
+	std::atomic<bool> m_panelTouched { false };     // since the last reading
+	std::atomic<bool> m_readRequest { false };      // run() starts a reading
+	std::atomic<uint32_t> m_blocks { 0 };           // blocks run() rendered
+	uint32_t m_panelQuiet = 0, m_panelSettle = 12000;   // run(): frames since the panel was touched
 
 	std::atomic<bool> m_keyDown[kNumKeys] {};
 	std::atomic<uint32_t> m_keySeq[kNumKeys];

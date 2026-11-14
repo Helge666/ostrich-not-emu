@@ -93,8 +93,8 @@ bit.
 
 `mt32_setup_test` checks what a session keeps: it sets one machine up from the panel, with a
 program change and with SysEx, reads its setup, restores that into a second machine and
-reads that one. Both readings must be the same (PASS, exit 0); it also prints both setups
-and the level of a note on each part.
+reads that one. Both readings must be the same, and so must the sound PART 1 to 5 show on
+the display (PASS, exit 0); it also prints both setups and the level of a note on each part.
 
 ```bash
 plugin/build-core/mt32_setup_test /path/to/roms mt32old/1.04

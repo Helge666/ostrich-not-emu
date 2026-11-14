@@ -3,7 +3,8 @@
 #
 # Build 88emu (gearmulator/source/ronaldo/88emu, from our fork, unmodified beyond its
 # `ostrich` branch) with gearmulator's own CMake as one static library, compile our core
-# around it (plugin/core) into libmt32core.a, and build the mt32_render tool.
+# around it (plugin/core) into libmt32core.a, and build the tools
+# (mt32_render, mt32_setup_test).
 #
 #   CXX, CC, AR, RC    compilers (mingw-w64 for Windows: cross-compiles)
 #   MT32_CORE_BUILD    output folder, default plugin/build-core
@@ -121,17 +122,19 @@ else
 	echo "  up to date                         $LIB"
 fi
 
-# --- mt32_render -------------------------------------------------------------------------
+# --- the tools ---------------------------------------------------------------------------
 EXE=""
 LIBS=(-lpthread -ldl)
 if [ "$CROSS_WINDOWS" = 1 ]; then EXE=".exe"; LIBS=(-static -lpthread -lole32 -lshell32 -luuid -lws2_32 -lwinmm); fi
-printf '  %-34s ' "mt32_render"
-if nice -n 19 "$CXX" -std=c++17 -O2 -g -Wall -I "$CORE" "$HERE/plugin/tools/mt32_render.cpp" \
-		"$OUT/libmt32core.a" "$EMU88_LIB" "${LIBS[@]}" -o "$OUT/mt32_render$EXE" \
-		2> "$OUT/mt32_render.log"; then
-	echo "built"
-else
-	echo "FAILED  (see $OUT/mt32_render.log)"
-	fail=1
-fi
+for tool in mt32_render mt32_setup_test; do
+	printf '  %-34s ' "$tool"
+	if nice -n 19 "$CXX" -std=c++17 -O2 -g -Wall -I "$CORE" "$HERE/plugin/tools/$tool.cpp" \
+			"$OUT/libmt32core.a" "$EMU88_LIB" "${LIBS[@]}" -o "$OUT/$tool$EXE" \
+			2> "$OUT/$tool.log"; then
+		echo "built"
+	else
+		echo "FAILED  (see $OUT/$tool.log)"
+		fail=1
+	fi
+done
 exit $fail

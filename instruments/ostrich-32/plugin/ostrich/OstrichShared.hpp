@@ -63,6 +63,8 @@ enum States : uint32_t
 	kStateMachines,     // DSP -> UI: the machines the images make (below)
 	kStateMidiIn,       // UI -> DSP: "<n> <choice>"
 	kStateMidiPorts,    // DSP -> UI: MIDI IN ports
+	kStateSetup,        // host session: "<machine> <SysEx as hex> ...", the unit's setup
+	kStatePartCh,       // host session, UI <-> DSP: "1" = channels 1-8 play parts 1-8
 	kStateCount
 };
 

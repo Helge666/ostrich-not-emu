@@ -29,6 +29,21 @@
       in Ostrich 55. A plain panel: the 20 characters (drawn with a font), MIDI MESSAGE,
       the ten switches, the knob (the firmware's pot; drag, wheel over knob or display,
       arrow keys). `shared/tools/ostrich_clap_render` plays through the CLAP.
+- [x] The session keeps the unit's setup (14.11.2026; the owner: "it forgets its settings").
+      The core keeps a copy of the unit's memory (88emu's `mt32::StateTracker`) from every
+      message the machine is given; what the panel changes it learns by data requests
+      (RQ1: system area, patch temps with rhythm setup, timbre temps), 0.5 s after the panel
+      was last touched. Saved as the state `setup` (`<machine> <SysEx as hex> ...`, from
+      88emu's `createRestore`), brought back after the boot, paced as the firmware wants
+      (faster pacing gives "Exc. Buffer overflow" on 1.04), and carried over when the
+      control ROM changes within a board. The fork's tag `ostrich-2` adds
+      `emu88_read_midi_out` for the answers. `mt32_setup_test` checks it without a host.
+- [x] **Part = Ch** (the owner's decision, 13.11.2026; done 14.11.2026): PART = CH in the bar,
+      on by default and kept in the session (state `partch`). While it is on, incoming MIDI
+      on channels 1-8 goes to the MT-32 on 2-9: the eight synth parts are then on the
+      channels of their numbers, RHYTHM on 10. Channel 9 coming in reaches PART 8 as
+      channel 8 does; channels 10-16 stay as they are. Sessions made before it have it on
+      too: their tracks on channels 2-9 then play one part further; untick it there.
 
 ## Next
 
@@ -56,13 +71,6 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
       latency is unplayable even at 64 frames (as for Ostrich 55: WASAPI shared mode
       through RtAudio calls in bursts of a device period). Lower latency there needs
       WASAPI low-latency shared mode or ASIO in our DPF fork, with the owner.
-- [ ] **Part = Ch** (the owner's decision, 13.11.2026): a checkbox in the bar, on by
-      default. While it is on, incoming MIDI on channels 1-8 goes to the MT-32 on 2-9 and
-      channel 10 stays as it is: the eight synth parts are then on the channels of their
-      numbers (PART 1 = channel 1, as the display shows them), RHYTHM on 10. The MT-32
-      itself hears PART 1-8 on channels 2-9 and nothing on 1. Channel 9 coming in then
-      reaches PART 8 as channel 8 does; channels 11-16 stay as they are. Its state is kept
-      in the session.
 - [ ] SysEx in: CLAP and standalone pass it; VST3 needs the DPF fork, as for Ostrich 55.
 - [ ] Panel after the hardware ([docs/PANEL.md](docs/PANEL.md)): the LCD as the unit's 5 x 8
       dot matrix (the font of its controller), the body, the switches and the knob after
@@ -72,7 +80,18 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
 - [ ] States meant only for the panel (status, romset, machines, panel) end up in the saved
       session too (seen in the CLAP state); harmless, but tidy that up (Ostrich 55 too).
 - [ ] Real-time safety: `emu88_get_display_text` builds a `std::string`; read the display
-      once per block or less, or find an allocation-free way.
+      once per block or less, or find an allocation-free way. The setup's copy of the unit's
+      memory takes a mutex on the audio thread for every message that writes memory (88emu's
+      `StateTracker`), held while the host saves (`createRestore`), and the answers to the
+      data requests are parsed there into vectors.
+- [ ] A per-part reverb switch in the bar or a list (the owner's question, 14.11.2026: in
+      their 1987 recordings some parts seem dry). The MT-32 has a reverb switch per part
+      (patch temp, offset 6) and per rhythm key; it is on at power-on, in all 128 factory
+      patches and for every rhythm key, and the old unit's panel cannot change it -- only
+      SysEx can. So with the built-in sounds every part went through the reverb; what
+      sounds dry is more likely the pans (power-on: part 7 hard left, part 8 hard right),
+      the levels and the sounds' own envelopes. Switching it from the plugin would be SysEx
+      the session keeps anyway.
 - [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
       publishes a release. Written 13.11.2026; green on GitHub (13.11.2026). 88emu's

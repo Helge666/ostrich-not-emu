@@ -57,11 +57,12 @@ Rect keyRect(uint32_t k)
 
 const Rect kKnob { 1218.0f, 98.0f, 72.0f, 72.0f };
 
-// The bar, from the right: CONTROL ROM, in the Windows standalone MIDI IN and BUFFER; the
-// status line takes the rest.  The lists open upwards, over the panel.
+// The bar, from the right: CONTROL ROM, PART = CH, in the Windows standalone MIDI IN and
+// BUFFER; the status line takes the rest.  The lists open upwards, over the panel.
 constexpr float kBarBtnH = 18.0f, kBarBtnY = kBarY + (kBarH - kBarBtnH) / 2;
 const Rect kMachineBtn { kW - 16.0f - 220.0f, kBarBtnY, 220.0f, kBarBtnH };
-const Rect kMidiIn  { kMachineBtn.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
+const Rect kPartChBtn { kMachineBtn.x - 12.0f - 92.0f, kBarBtnY, 92.0f, kBarBtnH };
+const Rect kMidiIn  { kPartChBtn.x - 16.0f - 240.0f, kBarBtnY, 240.0f, kBarBtnH };
 const Rect kBufferBtn { kMidiIn.x - 8.0f - 150.0f, kBarBtnY, 150.0f, kBarBtnH };
 
 // While ROM images are missing they take the place of the display and the switches: what
@@ -136,6 +137,11 @@ protected:
 		else if (std::strcmp(key, "midiports") == 0)
 		{
 			m_bar.setMidiPorts(value);
+			repaint();
+		}
+		else if (std::strcmp(key, "partch") == 0)
+		{
+			m_partCh = std::strcmp(value, "0") != 0;
 			repaint();
 		}
 	}
@@ -219,6 +225,13 @@ protected:
 			if (machineOffered() && kMachineBtn.contains(x, y))
 			{
 				m_bar.open(m_machineList, kMachineBtn, kMachineBtn.w);
+				return true;
+			}
+			if (kPartChBtn.contains(x, y))
+			{
+				m_partCh = !m_partCh;
+				setState("partch", m_partCh ? "1" : "0");
+				repaint();
 				return true;
 			}
 			if (romSetup())
@@ -510,14 +523,56 @@ private:
 
 		if (machineOffered())
 			m_bar.field(kMachineBtn, "CONTROL ROM", 82, machineLabel(), m_bar.isOpen(m_machineList), false);
+		drawPartCh();
 		m_bar.drawFields();
 
-		const float w = m_bar.leftEdge(kMachineBtn.x) - 24 - 16;
+		const float w = m_bar.leftEdge(kPartChBtn.x) - 24 - 16;
 		fontSize(11);
 		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
 		fillColor(m_panel.flags & 1 ? Color(140, 140, 140) : Color(240, 170, 60));
 		const std::string status = m_panel.flags & 4 ? std::string("Starting\xe2\x80\xa6") : m_status;
 		text(16, kBarY + kBarH / 2 + 1, m_bar.fit(status, w, 11).c_str(), nullptr);
+	}
+
+	// PART = CH: a box to tick.  On, channels 1-8 play parts 1-8 (the plugin moves them to
+	// the unit's 2-9); off, the unit hears the channels as they come.
+	void drawPartCh()
+	{
+		const Rect &r = kPartChBtn;
+		beginPath();
+		roundedRect(r.x + 0.5f, r.y + 0.5f, r.w - 1, r.h - 1, 3);
+		fillColor(Color(30, 30, 33));
+		fill();
+		strokeColor(Color(84, 84, 90));
+		strokeWidth(1);
+		stroke();
+
+		constexpr float b = 10.0f;
+		const float bx = r.x + 8, by = r.y + (r.h - b) / 2;
+		beginPath();
+		roundedRect(bx, by, b, b, 2);
+		if (m_partCh)
+		{
+			fillColor(Color(255, 140, 40));
+			fill();
+			beginPath();
+			moveTo(bx + 2.2f, by + 5.2f);
+			lineTo(bx + 4.3f, by + 7.4f);
+			lineTo(bx + 7.9f, by + 2.6f);
+			strokeColor(Color(40, 20, 0));
+			strokeWidth(1.6f);
+			stroke();
+		}
+		else
+		{
+			strokeColor(Color(150, 150, 156));
+			strokeWidth(1);
+			stroke();
+		}
+		fontSize(9);
+		textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
+		fillColor(m_partCh ? Color(220, 220, 224) : Color(150, 150, 156));
+		text(bx + b + 8, r.y + r.h / 2 + 1, "PART = CH", nullptr);
 	}
 
 	// ---- the control ROM: the machines the images make ---------------------------------
@@ -678,6 +733,7 @@ private:
 	std::string m_running, m_wantMachine;       // machine ids
 	std::vector<std::string> m_machineIds, m_machineNames;
 	bool m_machinesSeen = false;
+	bool m_partCh = true;                       // PART = CH, as the plugin has it
 	PanelSize m_size { *this, kW, kH };
 	StandaloneBar m_bar { *this, "Ostrich 32", kBarY, kW };
 

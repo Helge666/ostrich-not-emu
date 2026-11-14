@@ -2,14 +2,23 @@
 //
 // mt32_core -- see mt32_core.h.  88emu is used through its C interface for running a
 // machine and through its ROM registry (a header of size and digest per known image) for
-// telling the user's images apart; nothing of 88emu is changed.
+// telling the user's images apart, and through its LA memory model (mt32::StateTracker) for
+// the setup a session keeps.  Our fork adds one function to the C interface,
+// emu88_read_midi_out, for the answers to data requests; nothing else of 88emu is changed.
 
 #include "mt32_core.h"
 
 #include "88lib/c_interface.h"
+#include "88lib/deviceModel.h"
+#include "88lib/mt32/memory.h"
+#include "88lib/mt32/mt32.h"
+#include "88lib/mt32/stateTracker.h"
 #include "88lib/rom/romRegistry.h"
 
+#include "synthLib/midiTypes.h"
+
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -20,19 +29,80 @@
 
 namespace fs = std::filesystem;
 using namespace emu88Lib;
+namespace la = emu88Lib::mt32;   // 88emu's MT-32 memory, not this file's namespace
 
 namespace mt32 {
 
 namespace {
 
 // The LA boards Ostrich 32 runs, in the order they are offered.
-struct Board { RomDevice rom; const char *id; const char *name; emu88_device_id device; };
+struct Board { RomDevice rom; const char *id; const char *name; emu88_device_id device; DeviceModel model; };
 const Board kBoards[] = {
-	{ RomDevice::Mt32Old, "mt32old", "MT-32 1.x", EMU88_DEVICE_MT32_OLD },
-	{ RomDevice::Mt32New, "mt32new", "MT-32 2.x", EMU88_DEVICE_MT32_NEW },
-	{ RomDevice::Cm32l,   "cm32l",   "CM-32L",    EMU88_DEVICE_CM32L },
-	{ RomDevice::Cm32ln,  "cm32ln",  "CM-32LN",   EMU88_DEVICE_CM32LN },
+	{ RomDevice::Mt32Old, "mt32old", "MT-32 1.x", EMU88_DEVICE_MT32_OLD, DeviceModel::Mt32Old },
+	{ RomDevice::Mt32New, "mt32new", "MT-32 2.x", EMU88_DEVICE_MT32_NEW, DeviceModel::Mt32New },
+	{ RomDevice::Cm32l,   "cm32l",   "CM-32L",    EMU88_DEVICE_CM32L,    DeviceModel::Cm32l },
+	{ RomDevice::Cm32ln,  "cm32ln",  "CM-32LN",   EMU88_DEVICE_CM32LN,   DeviceModel::Cm32ln },
 };
+
+// Pacing the setup's messages (Core::readSetup, Core::restoreSetup).  88emu hands a
+// message to the firmware at once; the firmware wants time to digest it before the next,
+// or the MT-32 1.x shows "Exc. Buffer overflow".  The time a message is given is what
+// 88emu's own firmware tests give it (88lib/tests/mt32Firmware_test.cpp: 43 frames a byte
+// at 32 kHz and 40 ms), more after "all parameters reset".  The firmware boots before it
+// listens.
+constexpr double kBootSeconds = 2.0;
+constexpr double kResetSeconds = la::g_restoreResetDelayMs / 1000.0;
+constexpr double kAnswerMarginSeconds = 0.1;
+inline double messageSeconds(size_t bytes) { return double(bytes) * (11.0 / 32000.0 + 0.001) + 0.04; }
+inline double wireSeconds(size_t bytes) { return double(bytes) / 3125.0; }   // MIDI: 3125 bytes a second
+
+std::string toHex(const std::vector<la::Message> &messages)
+{
+	static const char digits[] = "0123456789abcdef";
+	std::string out;
+	for (const auto &m : messages)
+	{
+		if (!out.empty())
+			out += ' ';
+		for (uint8_t b : m)
+		{
+			out += digits[b >> 4];
+			out += digits[b & 15];
+		}
+	}
+	return out;
+}
+
+// The messages of a toHex() string; false unless each is a whole SysEx (F0 ... F7).
+bool fromHex(const std::string &hex, std::vector<la::Message> &out)
+{
+	out.clear();
+	auto nibble = [](char c) {
+		return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+	};
+	size_t i = 0;
+	while (i < hex.size())
+	{
+		if (hex[i] == ' ')
+		{
+			i ++;
+			continue;
+		}
+		la::Message m;
+		while (i < hex.size() && hex[i] != ' ')
+		{
+			const int hi = nibble(hex[i]), lo = i + 1 < hex.size() ? nibble(hex[i + 1]) : -1;
+			if (hi < 0 || lo < 0)
+				return false;
+			m.push_back(uint8_t(hi << 4 | lo));
+			i += 2;
+		}
+		if (m.size() < 2 || m.front() != 0xF0 || m.back() != 0xF7)
+			return false;
+		out.push_back(std::move(m));
+	}
+	return true;
+}
 
 const char *slotName(RomSlot s)
 {
@@ -181,10 +251,30 @@ struct Core::Impl
 	std::vector<uint8_t> sysex;          // the queued SysEx bytes, capacity reserved
 	size_t sysexUsed = 0;
 
+	// The copy of the unit's memory, and what the unit sends back.
+	la::StateTracker tracker;
+	std::atomic<bool> tracking { false };
+	uint8_t outBuffer[1024];
+	std::vector<uint8_t> outMessage;     // the SysEx coming in, capacity reserved
+	bool inSysex = false;
+
+	// Messages of our own at a time of their own (the readings, a restore), by due frame.
+	struct Scripted { uint64_t due; la::Message message; };
+	std::vector<Scripted> script;        // sorted by due, capacity reserved
+	size_t scriptNext = 0;
+	uint64_t scriptEnd = 0;              // when the last message's effect is through
+	std::atomic<bool> scriptBusy { false };
+	std::atomic<bool> restoring { false };  // the script is a restore: the copy is half way
+	std::vector<la::Message> requests;   // the readings, made at start()
+	uint64_t clock = 0;                  // frames rendered since start()
+	double rate = 0;
+
 	Impl()
 	{
 		events.reserve(2048);
 		sysex.resize(65536);
+		outMessage.reserve(4096);
+		script.reserve(16);
 	}
 
 	~Impl() { close(); }
@@ -194,9 +284,18 @@ struct Core::Impl
 		if (ctx)
 			emu88_free_context(ctx);
 		ctx = nullptr;
+		tracking.store(false);
 		events.clear();
 		sysexUsed = 0;
+		script.clear();
+		scriptNext = 0;
+		scriptBusy.store(false);
+		restoring.store(false);
+		inSysex = false;
+		outMessage.clear();
 	}
+
+	uint64_t frames(double seconds) const { return uint64_t(seconds * rate); }
 
 	void renderChunk(float *l, float *r, uint32_t frames)
 	{
@@ -210,15 +309,57 @@ struct Core::Impl
 				r[i] = buffer[i * 2 + 1];
 			}
 			l += n; r += n; frames -= n;
+			takeAnswers();
+		}
+	}
+
+	// What the unit sent: its answers to the readings teach the copy what the panel changed.
+	void takeAnswers()
+	{
+		for (;;)
+		{
+			const size_t n = emu88_read_midi_out(ctx, outBuffer, sizeof outBuffer);
+			for (size_t i = 0; i < n; i ++)
+			{
+				const uint8_t b = outBuffer[i];
+				if (b == 0xF0)
+				{
+					inSysex = true;
+					outMessage.clear();
+				}
+				if (!inSysex || b >= 0xF8)
+					continue;
+				if (outMessage.size() < outMessage.capacity())
+					outMessage.push_back(b);
+				if (b == 0xF7)
+				{
+					inSysex = false;
+					synthLib::SMidiEvent e(synthLib::MidiEventSource::Device);
+					e.sysex.assign(outMessage.begin(), outMessage.end());
+					tracker.processReply(e);
+				}
+			}
+			if (n < sizeof outBuffer)
+				return;
 		}
 	}
 
 	void play(const Event &e)
 	{
+		synthLib::SMidiEvent seen(synthLib::MidiEventSource::Host);
 		if (e.sysexLen)
+		{
 			emu88_play_sysex(ctx, sysex.data() + e.sysexAt, e.sysexLen);
+			seen.sysex.assign(sysex.data() + e.sysexAt, sysex.data() + e.sysexAt + e.sysexLen);
+		}
 		else
+		{
 			emu88_play_msg(ctx, e.msg);
+			seen.a = uint8_t(e.msg);
+			seen.b = uint8_t(e.msg >> 8);
+			seen.c = uint8_t(e.msg >> 16);
+		}
+		tracker.process(seen);
 	}
 };
 
@@ -296,6 +437,72 @@ bool Core::start(const std::string &machine, const std::vector<std::vector<uint8
 	m_running = true;
 	m_machine = machine;
 	m_rate = sampleRate;
+
+	// The copy of the memory starts where the unit does, at power-on.  The readings: what the
+	// panel can change, area by area (patch temps and rhythm setup are one range).
+	m->rate = sampleRate;
+	m->clock = 0;
+	m->tracker.setModel(board->model);
+	const la::LaFirmware fw = la::laFirmware(board->model);
+	m->requests = {
+		la::rq1(la::g_laSystem, uint32_t(la::g_laSystemSize)),
+		la::rq1(la::g_patchTemp, uint32_t(la::g_laParts * la::g_patchTempSize + la::rhythmKeyCount(fw) * 4)),
+		la::rq1(la::g_timbreTemp, uint32_t(la::g_laTimbreParts * la::g_timbreSize)),
+	};
+	m->tracking.store(true);
+	return true;
+}
+
+std::string Core::setup() const
+{
+	if (!m->tracking.load() || m->restoring.load())
+		return std::string();
+	return toHex(m->tracker.createRestore());
+}
+
+bool Core::busy() const
+{
+	return m->scriptBusy.load();
+}
+
+void Core::readSetup()
+{
+	if (!m_running || m->scriptBusy.load() || m->script.capacity() < m->requests.size())
+		return;
+	// Each request after the answer to the one before: the answer's bytes on the wire, with
+	// a DT1's ten bytes of frame per 256 data bytes.
+	m->script.clear();
+	m->scriptNext = 0;
+	uint64_t at = m->clock;
+	for (const la::Message &r : m->requests)
+	{
+		m->script.push_back({ at, r });
+		const uint32_t size = uint32_t(r[8]) << 14 | uint32_t(r[9]) << 7 | r[10];
+		at += m->frames(messageSeconds(r.size()) + wireSeconds(size + (size / la::g_maxDt1Size + 1) * 10) + kAnswerMarginSeconds);
+	}
+	m->scriptEnd = at;
+	m->scriptBusy.store(true);
+}
+
+bool Core::restoreSetup(const std::string &setup)
+{
+	std::vector<la::Message> messages;
+	if (!m_running || !fromHex(setup, messages) || messages.empty())
+		return false;
+	std::vector<Impl::Scripted> script;
+	uint64_t at = std::max(m->clock, m->frames(kBootSeconds));
+	for (size_t i = 0; i < messages.size(); i ++)
+	{
+		const size_t n = messages[i].size();
+		script.push_back({ at, std::move(messages[i]) });
+		at += m->frames(messageSeconds(n) + (i == 0 ? kResetSeconds : 0.0));
+	}
+	m->script = std::move(script);
+	m->script.reserve(std::max<size_t>(m->script.size(), 16));
+	m->scriptNext = 0;
+	m->scriptEnd = at;
+	m->restoring.store(true);
+	m->scriptBusy.store(true);
 	return true;
 }
 
@@ -340,6 +547,13 @@ void Core::render(float *left, float *right, uint32_t frames)
 		std::fill_n(right, frames, 0.f);
 		return;
 	}
+	// Our own messages that fall due in this block go in with the others.
+	while (m->scriptNext < m->script.size() && m->script[m->scriptNext].due < m->clock + frames)
+	{
+		const Impl::Scripted &s = m->script[m->scriptNext ++];
+		midi(s.message.data(), s.message.size(), uint32_t(s.due > m->clock ? s.due - m->clock : 0));
+	}
+
 	// 88emu takes a message with the next frame it renders: render up to each event's
 	// offset, then hand it over.
 	uint32_t pos = 0;
@@ -357,6 +571,12 @@ void Core::render(float *left, float *right, uint32_t frames)
 	m->sysexUsed = 0;
 	if (frames > pos)
 		m->renderChunk(left + pos, right + pos, frames - pos);
+	m->clock += frames;
+	if (m->scriptBusy.load() && m->scriptNext >= m->script.size() && m->clock >= m->scriptEnd)
+	{
+		m->restoring.store(false);
+		m->scriptBusy.store(false);
+	}
 }
 
 void Core::panelButtons(uint32_t buttons)

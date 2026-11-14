@@ -31,7 +31,11 @@ knob); the panel after the unit comes next ([ROADMAP.md](ROADMAP.md)).
    ROM images: click **CHOOSE FILE** and pick any one of your MT-32 or CM-32L ROM images, or
    a zip with them. The others in the same folder are found by their contents and copied to
    `C:\ProgramData\Ostrich 32\roms\`. Which images: [roms/README.md](roms/README.md).
-4. The MT-32 hears PART 1 on MIDI channel 2 and the rhythm part on channel 10.
+4. With **PART = CH** ticked in the bar (the default), MIDI channel 1 plays PART 1, channel 2
+   PART 2 and so on to 8; the rhythm part is on channel 10. Untick it and the MT-32 hears the
+   channels as they come, as the unit does: PART 1 on channel 2 up to PART 8 on channel 9.
+5. The session keeps the unit's setup: the sound each part plays, levels, pans, reverb,
+   master volume, whatever came by program change or SysEx or from the panel.
 
 ## Origin and thanks
 

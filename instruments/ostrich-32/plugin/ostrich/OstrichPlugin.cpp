@@ -298,12 +298,27 @@ protected:
 			state.label = "MIDI IN ports";
 			state.hints = kStateIsOnlyForUI;
 			break;
+		case kStateSetup:
+			// Saved with the session: what the song set the unit to, from the panel or by MIDI.
+			state.key = "setup";
+			state.label = "MT-32 setup";
+			state.hints = kStateIsOnlyForDSP;
+			break;
+		case kStatePartCh:
+			// Saved with the session; the bar's PART = CH switch.
+			state.key = "partch";
+			state.label = "Part = channel";
+			break;
 		}
-		state.defaultValue = "";
+		state.defaultValue = index == kStatePartCh ? "1" : "";
 	}
 
 	String getState(const char *key) const override
 	{
+		if (std::strcmp(key, "setup") == 0)
+			return String(currentSetup().c_str());
+		if (std::strcmp(key, "partch") == 0)
+			return String(m_partCh.load() ? "1" : "0");
 		std::lock_guard<std::mutex> lock(m_statusLock);
 		if (std::strcmp(key, "status") == 0)
 			return String(m_status.c_str());
@@ -373,6 +388,25 @@ protected:
 			m_midi.setState(value);
 			return;
 		}
+		if (std::strcmp(key, "setup") == 0)
+		{
+			if (value[0] == '\0')
+				return;                     // nothing to bring the unit to
+			{
+				std::lock_guard<std::mutex> lock(m_statusLock);
+				m_setup = value;
+				m_setupApply = true;
+				m_setupGen ++;
+			}
+			if (m_activated)
+				queueJob(std::string(), true);
+			return;
+		}
+		if (std::strcmp(key, "partch") == 0)
+		{
+			m_partCh.store(std::strcmp(value, "0") != 0);
+			return;
+		}
 	}
 
 	// ---- audio ---------------------------------------------------------------------------
@@ -420,12 +454,27 @@ protected:
 		{
 			const int to = std::clamp(m_knob + steps, 0, kKnobSteps);
 			if (to != m_knob)
+			{
 				m_core.panelKnob(to - m_knob);
+				m_panelDirty = true;
+				m_panelQuiet = 0;
+			}
 			m_knob = to;
 		}
 
+		// What MIDI changes, the core's copy of the unit's memory follows as it goes; what the
+		// panel changes, it learns by asking the unit, once the panel has been left alone.
+		if (m_panelDirty && (m_panelQuiet += frames) >= m_panelSettle && !m_core.busy())
+		{
+			m_core.readSetup();
+			m_panelDirty = false;
+		}
+
 		// MIDI in at its place in the block, the host's and the standalone's own merged.
-		// The core renders up to each message before it hands it over.
+		// The core renders up to each message before it hands it over.  PART = CH moves
+		// channels 1-8 to the unit's 2-9, so that channel n plays part n; 9 and 10-16 stay
+		// (9 then also plays part 8, 10 the rhythm part).
+		const bool partCh = m_partCh.load();
 		const uint32_t own = m_midi.collect(frames, m_hostRate);
 		for (uint32_t i = 0, o = 0; i < midiEventCount || o < own; )
 		{
@@ -448,6 +497,13 @@ protected:
 			// System Realtime (clock, start, active sensing) is not for the unit's parser.
 			if (size == 0 || data == nullptr || data[0] >= 0xF8)
 				continue;
+			uint8_t moved[3];
+			if (partCh && size <= 3 && data[0] >= 0x80 && data[0] < 0xF0 && (data[0] & 0x0F) < 8)
+			{
+				std::memcpy(moved, data, size);
+				moved[0] = uint8_t(data[0] + 1);
+				data = moved;
+			}
 			m_core.midi(data, size, std::min(frame, frames - 1));
 		}
 		m_core.render(outL, outR, frames);
@@ -459,12 +515,14 @@ private:
 	static constexpr double kKeyHoldSeconds = 0.08;     // long enough for the panel scan
 	static constexpr double kKeyGapSeconds = 0.04;
 	static constexpr uint32_t kKeyMaxQueued = 16;
+	static constexpr double kPanelSettleSeconds = 0.5;  // then the setup is read (run())
 
 	void setupRate()
 	{
 		m_publishPeriod = uint32_t(m_hostRate / kPanelRefreshHz);
 		m_keyHoldFrames = uint32_t(m_hostRate * kKeyHoldSeconds);
 		m_keyGap = uint32_t(m_hostRate * kKeyGapSeconds);
+		m_panelSettle = uint32_t(m_hostRate * kPanelSettleSeconds);
 		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
 	}
 
@@ -503,6 +561,8 @@ private:
 		{
 			m_core.panelButtons(mask);
 			m_keyMask = mask;
+			m_panelDirty = true;
+			m_panelQuiet = 0;
 		}
 	}
 
@@ -639,29 +699,67 @@ private:
 		return m_available.empty() ? std::string() : m_available.front().id;
 	}
 
-	/// Starts the machine chooseMachine() names at the host's rate, unless it runs already.
-	/// Not on the audio thread: run() plays silence meanwhile.
+	/// Starts the machine chooseMachine() names at the host's rate, unless it runs already,
+	/// and brings it to the session's setup if one waits.  Not on the audio thread: run()
+	/// plays silence meanwhile.
 	void startMachine()
 	{
 		std::lock_guard<std::mutex> romLock(m_romLock);
 		const std::string id = chooseMachine();
 		if (id.empty())
 			return;
+		std::string setup;
+		bool apply;
+		uint32_t gen;
 		{
-			std::lock_guard<std::mutex> probe(m_machine);
-			if (m_core.running() && m_core.machine() == id && m_core.sampleRate() == m_hostRate)
-				return;
+			std::lock_guard<std::mutex> lock(m_statusLock);
+			setup = m_setup;
+			apply = m_setupApply;
+			gen = m_setupGen;
 		}
-		m_starting.store(true);
 		std::string error;
-		bool ok;
+		bool started = false, ok = true;
 		{
 			std::lock_guard<std::mutex> lock(m_machine);
-			m_core.stop();
-			ok = m_core.start(id, m_images, m_hostRate, error);
-			m_knob = kKnobSteps;            // a new machine's knob stands fully clockwise
-			m_keyMask = 0;
+			if (!m_core.running() || m_core.machine() != id || m_core.sampleRate() != m_hostRate)
+			{
+				// Another machine, or another rate: the new one takes the setup over, unless
+				// the session brought one.
+				if (!apply && m_core.running())
+				{
+					const std::string s = m_core.setup();
+					if (!s.empty())
+						setup = m_core.machine() + " " + s;
+					apply = !setup.empty();
+				}
+				m_starting.store(true);
+				m_core.stop();
+				ok = m_core.start(id, m_images, m_hostRate, error);
+				m_knob = kKnobSteps;        // a new machine's knob stands fully clockwise
+				m_keyMask = 0;
+				m_panelDirty = false;
+				started = true;
+			}
+			if (ok && apply)
+			{
+				// Only into the board it was made on: the boards' memories differ (the CM-32L
+				// has more rhythm keys and its own sounds there).
+				const size_t space = setup.find(' ');
+				if (space != std::string::npos && boardOf(setup.substr(0, space)) == boardOf(id))
+					m_core.restoreSetup(setup.substr(space + 1));
+				apply = false;
+			}
 		}
+		{
+			std::lock_guard<std::mutex> lock(m_statusLock);
+			if (m_setupGen == gen)          // else the session brought another meanwhile
+			{
+				m_setup = setup;
+				m_setupApply = apply;
+			}
+		}
+		if (!started)
+			return;
 		m_starting.store(false);
 		m_runningId = ok ? id : std::string();
 		if (ok)
@@ -676,6 +774,26 @@ private:
 			setStatus(machineName(id) + " running (88emu " + mt32::libraryVersion() + ").  ROMs from " + pstr(m_romWhere));
 		else
 			setStatus(machineName(id) + " did not start: " + error);
+	}
+
+	/// "mt32old" of "mt32old/1.04".
+	static std::string boardOf(const std::string &id) { return id.substr(0, id.find('/')); }
+
+	/// What the session keeps of the unit, "<machine> <SysEx as hex> ...": the running
+	/// machine's setup, else (none runs, or a restore is under way) the last one known.
+	std::string currentSetup() const
+	{
+		std::lock_guard<std::mutex> romLock(m_romLock);     // no machine starts or stops meanwhile
+		{
+			std::lock_guard<std::mutex> lock(m_statusLock);
+			if (m_setupApply)
+				return m_setup;                 // the session's, not in a machine yet
+		}
+		const std::string s = m_runningId.empty() ? std::string() : m_core.setup();
+		std::lock_guard<std::mutex> lock(m_statusLock);
+		if (!s.empty())
+			m_setup = m_runningId + " " + s;
+		return m_setup;
 	}
 
 	// ---- the worker thread: picked ROM files, machine changes ----------------------------
@@ -824,6 +942,16 @@ private:
 	mutable std::mutex m_statusLock;
 	std::string m_status, m_romSet, m_machines, m_wantMachine, m_uiSize;
 	std::atomic<bool> m_statusPending { false };
+
+	// The setup the session keeps: the last one known, and whether it came with the session
+	// and is still to be brought to a machine.  Under m_statusLock.
+	mutable std::string m_setup;
+	bool m_setupApply = false;
+	uint32_t m_setupGen = 0;
+	// PART = CH; the panel's activity, after which run() reads the setup.
+	std::atomic<bool> m_partCh { true };
+	bool m_panelDirty = false;
+	uint32_t m_panelQuiet = 0, m_panelSettle = 24000;
 
 	std::atomic<bool> m_keyDown[kNumKeys] {};
 	std::atomic<uint32_t> m_keySeq[kNumKeys];

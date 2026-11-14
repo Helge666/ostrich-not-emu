@@ -99,6 +99,31 @@ public:
 	/// What a host's stop does: hold pedal up and All Notes Off on every channel.
 	void silence();
 
+	// ---- the setup: what a session keeps -----------------------------------------------
+	// A copy of the unit's memory (88emu's mt32::StateTracker) follows every message the
+	// machine is given.  What the panel changes, the copy learns by asking the unit (data
+	// requests, as an editor does with the hardware), see readSetup().
+
+	/// The unit's setup -- the timbre each part plays, levels, pans, reverb, and whatever
+	/// SysEx wrote -- as the SysEx that bring a freshly started machine to it: hex, the
+	/// messages separated by spaces.  Empty while no machine runs and while a restore is
+	/// under way (the copy is only half way there).  May come from any thread while the
+	/// machine is neither started nor stopped.
+	std::string setup() const;
+
+	/// Asks the unit for what its panel can change (system area, patch temps and rhythm
+	/// setup, timbre temps); the answers come in over the next second or so of rendering.
+	/// Real-time safe.  Ignored while a restore or another reading is under way.
+	void readSetup();
+
+	/// Brings the machine to a setup() once it has booted: the messages go in paced as the
+	/// firmware wants them, over the next seconds of rendering.  False, and nothing sent, if
+	/// @p setup is not one.  Not real-time safe.
+	bool restoreSetup(const std::string &setup);
+
+	/// Whether a restore or a reading is still under way.  Any thread.
+	bool busy() const;
+
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m;

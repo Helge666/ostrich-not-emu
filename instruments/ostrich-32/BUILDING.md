@@ -31,17 +31,19 @@ gearmulator carries submodules Ostrich 32 does not need (JUCE, plugin SDKs);
 
 | Path | Pinned to | Notes |
 |---|---|---|
-| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-1` (`5ec7238`) | upstream tag `2.2.27` plus two commits on branch `ostrich`; only 88emu is built |
+| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-2` (`815ad75`) | upstream tag `2.2.27` plus three commits on branch `ostrich`; only 88emu is built |
 | `third_party/gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`35ad204`) | the commit `2.2.27` pins plus one commit |
 | `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`7fb912d`) | see DPF-LOGAN.md |
 
-The commits on the `ostrich` branches, each needed only by mingw-w64 (GCC):
+The commits on the `ostrich` branches: three for mingw-w64 (GCC), one for the setup a session
+keeps:
 
 | Repository | Commit | Why |
 |---|---|---|
 | dsp56300 | `35ad204` structured exception handling only with MSVC | GCC has no `__try`/`__except`; the block only names a thread for a debugger |
 | gearmulator | `59c46df` `deviceException.cpp` includes `<cstdint>` | it uses `int32_t` without including it |
 | gearmulator | `5ec7238` dsp56300 from the Ostrich fork | `.gitmodules` and the pointer to the commit above |
+| gearmulator | `815ad75` 88emu: `emu88_read_midi_out` | the C interface had no way to read the unit's MIDI OUT; the core reads the answers to its data requests with it (the setup) |
 
 Two more differences need no commit: the header names gearmulator spells as the Windows SDK
 does (`<Windows.h>`, `<shlobj_core.h>`) come from shims in `plugin/tools/mingw`, and
@@ -88,6 +90,15 @@ Arguments: ROM folder, WAV, seconds, MIDI file (`""` for the test sequence), mac
 (default: the first complete one), sample rate (default 48000). Without a complete machine
 it says so and exits with 1. The Linux and the Windows build render the same WAV, bit for
 bit.
+
+`mt32_setup_test` checks what a session keeps: it sets one machine up from the panel, with a
+program change and with SysEx, reads its setup, restores that into a second machine and
+reads that one. Both readings must be the same (PASS, exit 0); it also prints both setups
+and the level of a note on each part.
+
+```bash
+plugin/build-core/mt32_setup_test /path/to/roms mt32old/1.04
+```
 
 ## 4. The plugin
 

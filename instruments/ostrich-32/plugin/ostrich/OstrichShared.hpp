@@ -47,8 +47,10 @@ const char *const kKeySymbols[kNumKeys] = {
 	"key_soundgroup", "key_sound", "key_volume", "key_mastervolume",
 };
 
-/// The knob's travel in the steps 88emu turns it by (32nds); it starts fully clockwise.
-constexpr int kKnobSteps = 32;
+/// The knob's travel in the panel's steps (a drag, a notch of the wheel, an arrow key): the
+/// 128 positions the firmware tells apart, a volume moves by 0 or 1 a step.  It starts fully
+/// clockwise.
+constexpr int kKnobSteps = 128;
 
 enum States : uint32_t
 {

@@ -31,12 +31,12 @@ gearmulator carries submodules Ostrich 32 does not need (JUCE, plugin SDKs);
 
 | Path | Pinned to | Notes |
 |---|---|---|
-| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-2` (`815ad75`) | upstream tag `2.2.27` plus three commits on branch `ostrich`; only 88emu is built |
+| `third_party/gearmulator/` | [Helge666/gearmulator](https://github.com/Helge666/gearmulator), tag `ostrich-3` (`d3446d2`) | upstream tag `2.2.27` plus four commits on branch `ostrich`; only 88emu is built |
 | `third_party/gearmulator/source/cpu/dsp56300` | [Helge666/dsp56300](https://github.com/Helge666/dsp56300), tag `ostrich-1` (`35ad204`) | the commit `2.2.27` pins plus one commit |
 | `third_party/dpf/` | [Helge666/DPF](https://github.com/Helge666/DPF), tag `logan-2` (`7fb912d`) | see DPF-LOGAN.md |
 
 The commits on the `ostrich` branches: three for mingw-w64 (GCC), one for the setup a session
-keeps:
+keeps, one for the knob:
 
 | Repository | Commit | Why |
 |---|---|---|
@@ -44,6 +44,7 @@ keeps:
 | gearmulator | `59c46df` `deviceException.cpp` includes `<cstdint>` | it uses `int32_t` without including it |
 | gearmulator | `5ec7238` dsp56300 from the Ostrich fork | `.gitmodules` and the pointer to the commit above |
 | gearmulator | `815ad75` 88emu: `emu88_read_midi_out` | the C interface had no way to read the unit's MIDI OUT; the core reads the answers to its data requests with it (the setup) |
+| gearmulator | `d3446d2` 88emu: `emu88_set_panel_knob` | the knob could only be turned by steps; the plugin's knob follows the volume shown and sets the pot to where that value lies |
 
 Two more differences need no commit: the header names gearmulator spells as the Windows SDK
 does (`<Windows.h>`, `<shlobj_core.h>`) come from shims in `plugin/tools/mingw`, and

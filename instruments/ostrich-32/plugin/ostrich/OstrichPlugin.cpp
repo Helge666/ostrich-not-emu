@@ -453,15 +453,17 @@ protected:
 		tickKeys(frames);
 		if (const int steps = m_knobSteps.exchange(0))
 		{
-			const int to = std::clamp(m_knob + steps, 0, kKnobSteps);
+			const int to = std::clamp(m_knob + steps * kPotPerStep, 0, int(mt32::kKnobMaximum));
 			if (to != m_knob)
 			{
-				m_core.panelKnob(to - m_knob);
+				m_core.setPanelKnob(uint16_t(to));
 				m_panelTouched.store(true);
 				m_panelQuiet = 0;
+				m_knobIdle = 0;
 			}
 			m_knob = to;
 		}
+		m_knobIdle = m_knobIdle < m_knobSettle ? m_knobIdle + frames : m_knobIdle;
 
 		// What MIDI changes, the core's copy of the unit's memory follows as it goes; what the
 		// panel changed, it learns by asking the unit once the panel has been left alone for
@@ -522,13 +524,16 @@ private:
 	static constexpr double kKeyGapSeconds = 0.04;
 	static constexpr uint32_t kKeyMaxQueued = 16;
 	static constexpr double kPanelQuietSeconds = 0.25;  // then what the panel changed is read
+	static constexpr double kKnobSettleSeconds = 0.3;   // then the knob follows the value
+	static constexpr int kPotPerStep = 8;               // a panel step: one the firmware reads
 
 	void setupRate()
 	{
 		m_publishPeriod = uint32_t(m_hostRate / kPanelRefreshHz);
 		m_keyHoldFrames = uint32_t(m_hostRate * kKeyHoldSeconds);
 		m_keyGap = uint32_t(m_hostRate * kKeyGapSeconds);
-		m_panelSettle = uint32_t(m_hostRate * kPanelQuietSeconds);		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
+		m_panelSettle = uint32_t(m_hostRate * kPanelQuietSeconds);
+		m_knobSettle = uint32_t(m_hostRate * kKnobSettleSeconds);		for (auto &f : m_keyFreeFrames) f = m_keyGap;   // the first press goes at once
 	}
 
 	// Presses queue up (a fast hand), each played as a press of its own: held for
@@ -600,9 +605,12 @@ private:
 			char text[21];
 			bool lamp = false;
 			if (m_core.display(text, lamp))
+			{
 				std::memcpy(blob.text, text, sizeof(blob.text));
+				followValue(text);
+			}
 			blob.flags = uint8_t(1 | (lamp ? 2 : 0));
-			blob.knob = uint8_t(m_knob);
+			blob.knob = uint8_t((m_knob * kKnobSteps + mt32::kKnobMaximum / 2) / mt32::kKnobMaximum);
 		}
 		else
 		{
@@ -623,6 +631,44 @@ private:
 				m_publishesSame = 0;
 			}
 		}
+	}
+
+	// The knob as if it had a motor: where the display shows a volume -- the master volume on
+	// the main screen ("1 2 3 4 5 R vol: 71"), a part's after PART n ("1|Fretless 2|vol> 80")
+	// -- the knob goes to where that volume stands, once nobody has turned it for
+	// kKnobSettleSeconds.  The unit's own knob stays where the hand left it, so after a
+	// restore or another part it would point elsewhere, and a part's volume only follows it
+	// once it passes the value.  The firmware reads the 10-bit pot as 7 bits and maps 0-127
+	// to 0-100 (measured on 1.04 and 1.07, every position); the knob goes to the middle of
+	// the value's span, so the firmware reads the value it has.  Not in SOUND mode: there
+	// the knob picks a sound at once, and a jump would pick another.
+	static int potValue(int pot) { return (pot >> 3) * 100 / 127; }
+	static int potFor(int value)
+	{
+		const int low = (value * 127 + 99) / 100, high = std::min(127, ((value + 1) * 127 + 99) / 100 - 1);
+		return std::min(int(mt32::kKnobMaximum), (low + high) * 4 + 4);
+	}
+
+	void followValue(const char *t)
+	{
+		if (m_knobIdle < m_knobSettle)
+			return;
+		const bool master = t[1] == ' ' && std::memcmp(t + 13, "vol:", 4) == 0;
+		const bool part = t[1] == '|' && std::memcmp(t + 13, "vol>", 4) == 0;
+		if (!master && !part)
+			return;
+		int value = 0;
+		for (int i = 17; i < 20; i ++)
+		{
+			if (t[i] >= '0' && t[i] <= '9')
+				value = value * 10 + (t[i] - '0');
+			else if (t[i] != ' ')
+				return;
+		}
+		if (value > 100 || potValue(m_knob) == value)
+			return;
+		m_knob = potFor(value);
+		m_core.setPanelKnob(uint16_t(m_knob));
 	}
 
 	void setStatus(const std::string &s)
@@ -742,7 +788,8 @@ private:
 				m_starting.store(true);
 				m_core.stop();
 				ok = m_core.start(id, m_images, m_hostRate, error);
-				m_knob = kKnobSteps;        // a new machine's knob stands fully clockwise
+				m_knob = mt32::kKnobMaximum;    // a new machine's knob stands fully clockwise
+				m_knobIdle = 0;
 				m_keyMask = 0;
 				m_panelTouched.store(false);
 				m_readRequest.store(false);
@@ -971,7 +1018,8 @@ private:
 	// The machine: run() and startMachine().  Lock order: m_romLock, m_machine, m_statusLock.
 	mutable std::mutex m_machine;
 	mt32::Core m_core;
-	int m_knob = kKnobSteps;                    // where the firmware's knob stands
+	int m_knob = mt32::kKnobMaximum;            // where the unit's knob stands, 0 .. 1023
+	uint32_t m_knobIdle = 0, m_knobSettle = 14400;  // frames since it was turned
 	uint32_t m_keyMask = 0;
 	std::atomic<bool> m_starting { false };
 	std::atomic<bool> m_activated { false };

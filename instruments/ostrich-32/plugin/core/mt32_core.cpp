@@ -615,6 +615,12 @@ void Core::panelKnob(int steps)
 		emu88_turn_panel_encoder(m->ctx, steps);
 }
 
+void Core::setPanelKnob(uint16_t position)
+{
+	if (m_running)
+		emu88_set_panel_knob(m->ctx, std::min(position, kKnobMaximum));
+}
+
 bool Core::display(char text[21], bool &midiLamp) const
 {
 	std::memset(text, ' ', 20);

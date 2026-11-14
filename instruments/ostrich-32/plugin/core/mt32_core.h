@@ -46,6 +46,9 @@ std::vector<Machine> findMachines(const std::vector<std::vector<uint8_t>> &image
 /// 88emu's version, e.g. "2.2.27".
 const char *libraryVersion();
 
+/// The knob's travel on the unit's 10-bit A/D converter (Core::setPanelKnob).
+constexpr uint16_t kKnobMaximum = 1023;
+
 /// The MT-32's switches, for Core::panelButtons() (88emu's numbering).
 enum Button : uint32_t
 {
@@ -91,6 +94,10 @@ public:
 
 	/// Turns the knob by 32nds of its travel, negative = anticlockwise.
 	void panelKnob(int steps);
+
+	/// Sets the knob (a pot: the firmware reads where it stands) to a position, 0 = fully
+	/// anticlockwise to kKnobMaximum = fully clockwise, where a new machine has it.
+	void setPanelKnob(uint16_t position);
 
 	/// The 20 characters of the LCD as the firmware left them (plus a terminating 0), and
 	/// the MIDI MESSAGE lamp.  False while not running.

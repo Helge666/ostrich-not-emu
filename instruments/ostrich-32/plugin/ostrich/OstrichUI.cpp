@@ -288,13 +288,13 @@ protected:
 			return true;
 		if (!m_dragKnob)
 			return false;
-		// Up turns clockwise: a step every 6 design units.
+		// Up turns clockwise: a step every 2 design units (the whole travel in 200).
 		const float y = float(ev.pos.getY()) / s;
-		const int steps = int((m_dragY - y) / 6.0f);
+		const int steps = int((m_dragY - y) / 2.0f);
 		if (steps != 0)
 		{
 			turnKnob(steps);
-			m_dragY -= float(steps) * 6.0f;
+			m_dragY -= float(steps) * 2.0f;
 		}
 		return true;
 	}

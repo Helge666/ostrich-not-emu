@@ -50,6 +50,15 @@
       channels of their numbers, RHYTHM on 10. Channel 9 coming in reaches PART 8 as
       channel 8 does; channels 10-16 stay as they are. Sessions made before it have it on
       too: their tracks on channels 2-9 then play one part further; untick it there.
+- [x] The knob follows the volume the display shows (14.11.2026; the owner: "the volume
+      knob is always fully clockwise"). The unit's knob is a pot the firmware reads (10 bit,
+      value = (pot >> 3) * 100 / 127, measured for every value on 1.04 to 1.07); the plugin's
+      knob now has a motor: when MASTER VOLUME or a part's VOLUME is shown and the knob was
+      left alone for 0.3 s, it moves to where that value lies (the fork's tag `ostrich-3`
+      adds `emu88_set_panel_knob`). A part's volume changes only once the pot passes it
+      (the firmware's pickup), so the jump changes nothing; in SOUND the pot picks the
+      sound at once, so there the knob stays where it is. A drag, wheel notch or arrow
+      key is one of the 128 steps the firmware tells apart.
 
 ## Next
 
@@ -98,6 +107,14 @@ These sets are at hand on the build host (`/data/coding/Ostrich-not-Emu/roms/ost
       sounds dry is more likely the pans (power-on: part 7 hard left, part 8 hard right),
       the levels and the sounds' own envelopes. Switching it from the plugin would be SysEx
       the session keeps anyway.
+- [ ] A **REVERB MODE** button (the owner, 14.11.2026). On the unit, MASTER VOLUME and
+      VOLUME held together let the knob pick one of the preset reverb settings (0-10). A
+      click cannot hold two switches, so the new button latches: pressed once, it holds
+      both switches for the firmware (the key mask in `run()`/`tickKeys` keeps their bits
+      set while latched), the knob selects, and the display stays the firmware's; pressed
+      again, it releases them and the selection ends. The knob's motor must keep still
+      while it is latched. Check on 1.04 to 1.07 what the firmware shows and when it takes
+      the value; the session keeps the result (system area, already read).
 - [ ] CI in the monorepo, as for the other instruments (`ci/`, `tools/ci/`): Linux and
       Windows (mingw, cross-compiled), zips with the licence texts, an `ostrich32-v*` tag
       publishes a release. Written 13.11.2026; green on GitHub (13.11.2026). 88emu's
